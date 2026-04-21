@@ -1,3 +1,11 @@
+'''
+File description:
+Minimal XLSX XML parsing helpers used for quick spreadsheet inspection.
+
+Instead of relying only on heavyweight spreadsheet readers, this module can peek
+inside the ZIP/XML structure to list sheets and preview rows cheaply.
+'''
+
 from __future__ import annotations
 
 import re
@@ -14,6 +22,7 @@ NS = {
 
 
 def _col_index(cell_ref: str) -> int:
+    """Convert an Excel cell reference like `C12` into a zero-based index."""
     letters = re.match(r"([A-Z]+)", cell_ref).group(1)
     idx = 0
     for ch in letters:
@@ -22,6 +31,7 @@ def _col_index(cell_ref: str) -> int:
 
 
 def _load_shared_strings(zf: zipfile.ZipFile) -> list[str]:
+    """Load the workbook shared-string table if one is present."""
     if "xl/sharedStrings.xml" not in zf.namelist():
         return []
     root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
@@ -33,12 +43,14 @@ def _load_shared_strings(zf: zipfile.ZipFile) -> list[str]:
 
 
 def list_sheets(path: str | Path) -> list[str]:
+    """Return the sheet names stored in an XLSX workbook."""
     with zipfile.ZipFile(path) as zf:
         wb = ET.fromstring(zf.read("xl/workbook.xml"))
         return [sh.attrib["name"] for sh in wb.find("a:sheets", NS)]
 
 
 def _resolve_sheet_target(zf: zipfile.ZipFile, sheet_name: str | None) -> tuple[str, str]:
+    """Resolve a logical sheet name to the ZIP member that contains its XML."""
     wb = ET.fromstring(zf.read("xl/workbook.xml"))
     rels = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
     rel_map = {rel.attrib["Id"]: rel.attrib["Target"] for rel in rels}
@@ -63,6 +75,7 @@ def _resolve_sheet_target(zf: zipfile.ZipFile, sheet_name: str | None) -> tuple[
 
 
 def read_sheet(path: str | Path, sheet_name: str | None = None) -> pd.DataFrame:
+    """Read one worksheet directly from the XLSX ZIP/XML structure."""
     with zipfile.ZipFile(path) as zf:
         shared = _load_shared_strings(zf)
         selected_name, target = _resolve_sheet_target(zf, sheet_name)
@@ -74,6 +87,8 @@ def read_sheet(path: str | Path, sheet_name: str | None = None) -> pd.DataFrame:
             for row in sheet_data.findall("a:row", NS):
                 values: dict[int, str | None] = {}
                 for cell in row.findall("a:c", NS):
+                    # Worksheet XML stores sparse cells, so we track explicit
+                    # column indices and rebuild dense rows ourselves.
                     ref = cell.attrib.get("r", "A1")
                     idx = _col_index(ref)
                     max_col = max(max_col, idx + 1)
@@ -103,6 +118,7 @@ def read_sheet(path: str | Path, sheet_name: str | None = None) -> pd.DataFrame:
 
 
 def quick_inspect(path: str | Path, sheet_name: str | None = None, max_rows: int = 5) -> dict:
+    """Return a lightweight preview dictionary for one worksheet."""
     df = read_sheet(path, sheet_name=sheet_name)
     return {
         "sheet_name": df.attrs.get("sheet_name", sheet_name),

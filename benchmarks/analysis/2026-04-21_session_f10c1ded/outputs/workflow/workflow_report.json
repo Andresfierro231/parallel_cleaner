@@ -1,0 +1,23 @@
+{
+  "workflow_dir": "analysis/2026-04-21_session_f10c1ded/outputs/workflow",
+  "cache_dir": "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/analysis/2026-04-21_session_f10c1ded/cache",
+  "inspection_report": "analysis/2026-04-21_session_f10c1ded/outputs/workflow/inspection_report.json",
+  "normalized_summary": "analysis/2026-04-21_session_f10c1ded/outputs/workflow/normalized_summary.json",
+  "clean_runs": [
+    {
+      "output_dir": "analysis/2026-04-21_session_10081561/outputs/clean_serial",
+      "run_summary_json": "analysis/2026-04-21_session_10081561/outputs/clean_serial/run_summary.json",
+      "cleaning_summary_csv": "analysis/2026-04-21_session_10081561/outputs/clean_serial/cleaning_summary.csv",
+      "mode": "serial",
+      "nproc": 1,
+      "elapsed_sec": 663.9417962357402
+    }
+  ],
+  "benchmark": null,
+  "paper_artifacts": {
+    "benchmark_summary_csv": null,
+    "benchmark_summary_json": null,
+    "benchmark_results_json": null,
+    "reference_cleaning_summary_csv": "analysis/2026-04-21_session_10081561/outputs/clean_serial/cleaning_summary.csv"
+  }
+}

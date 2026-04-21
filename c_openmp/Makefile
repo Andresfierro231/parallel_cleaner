@@ -1,3 +1,6 @@
+# File description:
+# Simple build rules for the focused OpenMP comparison kernel.
+
 CC ?= gcc
 CFLAGS ?= -O3 -fopenmp -std=c11 -Wall -Wextra
 LDFLAGS ?= -lm

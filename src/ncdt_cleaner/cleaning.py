@@ -1,3 +1,12 @@
+'''
+File description:
+Core spike detection and repair logic for one sensor time series.
+
+This is the algorithmic center of the project. It flags suspicious points using
+local-window statistics, then applies a configurable repair strategy and emits
+summary statistics that the rest of the pipeline records.
+'''
+
 from __future__ import annotations
 
 import logging
@@ -20,6 +29,7 @@ except Exception:  # pragma: no cover
 
 @njit(cache=True)
 def _flag_spikes_numba(values: np.ndarray, window_radius: int, z_threshold: float, absolute_jump_threshold: float) -> np.ndarray:
+    """Numba-compatible implementation of local-window spike flagging."""
     n = len(values)
     flags = np.zeros(n, dtype=np.uint8)
     for i in range(n):
@@ -57,6 +67,7 @@ def _flag_spikes_numba(values: np.ndarray, window_radius: int, z_threshold: floa
 
 
 def flag_spikes(values: np.ndarray, window_radius: int, z_threshold: float, absolute_jump_threshold: float) -> np.ndarray:
+    """Public wrapper for spike flagging that normalizes input types."""
     arr = np.asarray(values, dtype=float)
     if NUMBA_AVAILABLE:
         return _flag_spikes_numba(arr, int(window_radius), float(z_threshold), float(absolute_jump_threshold)).astype(bool)
@@ -64,6 +75,7 @@ def flag_spikes(values: np.ndarray, window_radius: int, z_threshold: float, abso
 
 
 def _nearest_valid(values: np.ndarray, i: int) -> float:
+    """Return the closest non-NaN value near index `i`."""
     n = len(values)
     for offset in range(1, n):
         left = i - offset
@@ -76,6 +88,7 @@ def _nearest_valid(values: np.ndarray, i: int) -> float:
 
 
 def _local_mean(values: np.ndarray, i: int, window_radius: int) -> float:
+    """Compute the neighborhood mean around one index, excluding itself."""
     left = max(0, i - window_radius)
     right = min(len(values), i + window_radius + 1)
     window = np.delete(values[left:right], min(i - left, right - left - 1))
@@ -90,6 +103,7 @@ def apply_repair_strategy(
     window_radius: int,
     clip_max: float | None = None,
 ) -> np.ndarray:
+    """Repair flagged points according to the configured strategy name."""
     repaired = np.asarray(values, dtype=float).copy()
     for i, flagged in enumerate(flags):
         if not flagged:
@@ -112,6 +126,7 @@ def apply_repair_strategy(
 
 
 def fill_missing(values: np.ndarray) -> np.ndarray:
+    """Fill missing values by interpolation or constant fallback behavior."""
     arr = np.asarray(values, dtype=float).copy()
     idx = np.arange(arr.size)
     mask = ~np.isnan(arr)
@@ -126,6 +141,7 @@ def fill_missing(values: np.ndarray) -> np.ndarray:
 
 @dataclass
 class SensorCleaningResult:
+    """Bundle original values, cleaned values, flags, and summary stats."""
     original: np.ndarray
     cleaned: np.ndarray
     flags: np.ndarray
@@ -133,6 +149,7 @@ class SensorCleaningResult:
 
 
 def clean_sensor(values: np.ndarray, cleaning_cfg: dict) -> SensorCleaningResult:
+    """Run the full cleaning pipeline for a single sensor channel."""
     original = np.asarray(values, dtype=float)
     flags = flag_spikes(
         original,

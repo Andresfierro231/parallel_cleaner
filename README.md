@@ -44,13 +44,9 @@ Get on a compute notde,
 
 ```bash
 python -m pip install -e .
-python -m ncdt_cleaner.cli inspect /path/to/Test00.xlsx
-python -m ncdt_cleaner.cli cache-build /path/to/Test00.xlsx --config configs/default_config.json
-python -m ncdt_cleaner.cli clean --cache-dir analysis/<session>/cache --mode serial
-mpirun -n 4 python -m ncdt_cleaner.cli clean --cache-dir analysis/<session>/cache --mode replicated
-mpirun -n 4 python -m ncdt_cleaner.cli clean --cache-dir analysis/<session>/cache --mode partitioned
-python -m ncdt_cleaner.cli characterize --cache-dir analysis/<session>/cache
-python benchmarks/run_scaling.py --cache-dir analysis/<session>/cache
+python -m ncdt_cleaner.cli workflow /path/to/Test00.xlsx \
+  --modes serial replicated partitioned \
+  --process-counts 2 4 8
 ```
 
 ## Intended workflow
@@ -62,6 +58,26 @@ python benchmarks/run_scaling.py --cache-dir analysis/<session>/cache
 5. **Characterize** the cleaned data using splines or local cubics.
 6. **Benchmark** serial vs MPI strategies.
 7. Use the generated JSON/CSV/plots in the report draft under `reports/`.
+
+The recommended entrypoint is now:
+
+```bash
+python -m ncdt_cleaner.cli workflow /path/to/Test00.xlsx
+```
+
+This single command can:
+- inspect the input,
+- create the cache if needed,
+- run representative serial, replicated, and partitioned clean passes,
+- benchmark the requested process counts,
+- write a consolidated `workflow_report.json`,
+- emit report-friendly files such as `benchmark_summary.csv` and benchmark plots.
+
+If you already have a cache, reuse it directly:
+
+```bash
+python -m ncdt_cleaner.cli workflow --cache-dir analysis/<session>/cache
+```
 
 ## Notes on file irregularities
 

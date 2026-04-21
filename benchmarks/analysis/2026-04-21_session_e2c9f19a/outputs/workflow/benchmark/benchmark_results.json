@@ -1,0 +1,70 @@
+{
+  "results": [
+    {
+      "mode": "serial",
+      "nproc": 1,
+      "elapsed_sec": 611.4441439816728,
+      "all_times": [
+        611.4441439816728
+      ],
+      "command": [
+        "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/../.venv/bin/python",
+        "-m",
+        "ncdt_cleaner.cli",
+        "--config",
+        "../configs/default_config.json",
+        "clean",
+        "--cache-dir",
+        "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/analysis/2026-04-21_session_f10c1ded/cache",
+        "--mode",
+        "serial"
+      ]
+    },
+    {
+      "mode": "replicated",
+      "nproc": 2,
+      "elapsed_sec": 311.38406786322594,
+      "all_times": [
+        311.38406786322594
+      ],
+      "command": [
+        "mpirun",
+        "-n",
+        "2",
+        "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/../.venv/bin/python",
+        "-m",
+        "ncdt_cleaner.cli",
+        "--config",
+        "../configs/default_config.json",
+        "clean",
+        "--cache-dir",
+        "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/analysis/2026-04-21_session_f10c1ded/cache",
+        "--mode",
+        "replicated"
+      ]
+    },
+    {
+      "mode": "partitioned",
+      "nproc": 2,
+      "elapsed_sec": 311.7651442391798,
+      "all_times": [
+        311.7651442391798
+      ],
+      "command": [
+        "mpirun",
+        "-n",
+        "2",
+        "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/../.venv/bin/python",
+        "-m",
+        "ncdt_cleaner.cli",
+        "--config",
+        "../configs/default_config.json",
+        "clean",
+        "--cache-dir",
+        "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/analysis/2026-04-21_session_f10c1ded/cache",
+        "--mode",
+        "partitioned"
+      ]
+    }
+  ]
+}

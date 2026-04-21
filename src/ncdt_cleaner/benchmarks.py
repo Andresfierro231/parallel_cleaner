@@ -1,13 +1,19 @@
+'''
+File description:
+Benchmark orchestration helpers for serial and MPI scaling experiments.
+
+The functions in this module build command lines, run repeated timing studies,
+and write summary tables and plots that can be dropped into the course paper.
+'''
+
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 from .config import save_json
-from .plotting import plot_speedup
 from .stats import write_csv_table
 from .utils import ensure_dir
 
@@ -15,6 +21,7 @@ MODE_ORDER = ("serial", "replicated", "partitioned")
 
 
 def benchmark_subprocess(command: list[str], repeat: int = 3) -> dict:
+    """Run one command multiple times and keep the full timing history."""
     times = []
     for _ in range(repeat):
         t0 = time.perf_counter()
@@ -35,6 +42,7 @@ def clean_cli_command(
     characterize: bool = False,
     python_executable: str | None = None,
 ) -> list[str]:
+    """Build the canonical `clean` CLI command for one execution mode."""
     command = [
         python_executable or sys.executable,
         "-m",
@@ -53,6 +61,7 @@ def clean_cli_command(
 
 
 def mpi_wrapped_command(command: list[str], nproc: int, mpi_launcher: str = "mpirun") -> list[str]:
+    """Prefix a normal Python command with the chosen MPI launcher."""
     return [mpi_launcher, "-n", str(nproc), *command]
 
 
@@ -66,6 +75,7 @@ def run_scaling_study(
     python_executable: str | None = None,
     mpi_launcher: str = "mpirun",
 ) -> list[dict]:
+    """Run the requested serial and MPI timing study and return raw rows."""
     selected_modes = [mode for mode in MODE_ORDER if mode in set(modes or MODE_ORDER)]
     rows: list[dict] = []
 
@@ -94,6 +104,8 @@ def run_scaling_study(
         for nproc in process_counts:
             if nproc <= 1:
                 continue
+            # MPI timings are kept as raw rows first; report-oriented summaries
+            # are derived later so the original measurements remain available.
             command = mpi_wrapped_command(
                 clean_cli_command(
                     config_path=config_path,
@@ -119,6 +131,7 @@ def run_scaling_study(
 
 
 def summarize_benchmark_rows(rows: list[dict]) -> list[dict]:
+    """Convert raw timing rows into speedup and efficiency summary rows."""
     serial_row = next((row for row in rows if row["mode"] == "serial" and int(row["nproc"]) == 1), None)
     serial_elapsed = float(serial_row["elapsed_sec"]) if serial_row else None
 
@@ -150,6 +163,9 @@ def summarize_benchmark_rows(rows: list[dict]) -> list[dict]:
 
 
 def write_benchmark_results(out_dir: str | Path, rows: list[dict]) -> dict:
+    """Write raw benchmark results, summaries, and plots into one directory."""
+    from .plotting import plot_speedup
+
     out_dir = ensure_dir(out_dir)
     results_json = Path(out_dir) / "benchmark_results.json"
     summary_json = Path(out_dir) / "benchmark_summary.json"

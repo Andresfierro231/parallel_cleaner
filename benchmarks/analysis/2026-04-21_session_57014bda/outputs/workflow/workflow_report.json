@@ -1,0 +1,61 @@
+{
+  "workflow_dir": "analysis/2026-04-21_session_57014bda/outputs/workflow",
+  "cache_dir": "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/analysis/2026-04-21_session_57014bda/cache",
+  "inspection_report": "analysis/2026-04-21_session_57014bda/outputs/workflow/inspection_report.json",
+  "normalized_summary": "analysis/2026-04-21_session_57014bda/outputs/workflow/normalized_summary.json",
+  "clean_runs": [
+    {
+      "output_dir": "analysis/2026-04-21_session_a0c0ccc8/outputs/clean_serial",
+      "run_summary_json": "analysis/2026-04-21_session_a0c0ccc8/outputs/clean_serial/run_summary.json",
+      "cleaning_summary_csv": "analysis/2026-04-21_session_a0c0ccc8/outputs/clean_serial/cleaning_summary.csv",
+      "mode": "serial",
+      "nproc": 1,
+      "elapsed_sec": 0.6065655751153827
+    },
+    {
+      "output_dir": "analysis/2026-04-21_session_85da56c1/outputs/clean_replicated",
+      "run_summary_json": "analysis/2026-04-21_session_85da56c1/outputs/clean_replicated/run_summary.json",
+      "cleaning_summary_csv": "analysis/2026-04-21_session_85da56c1/outputs/clean_replicated/cleaning_summary.csv",
+      "mode": "replicated",
+      "nproc": 2,
+      "rank": 0,
+      "written_sensors": 4,
+      "elapsed_sec": 0.9694739766418934
+    },
+    {
+      "output_dir": "analysis/2026-04-21_session_c0c32072/outputs/clean_partitioned",
+      "run_summary_json": "analysis/2026-04-21_session_c0c32072/outputs/clean_partitioned/run_summary.json",
+      "cleaning_summary_csv": "analysis/2026-04-21_session_c0c32072/outputs/clean_partitioned/cleaning_summary.csv",
+      "mode": "partitioned",
+      "nproc": 2,
+      "rank": 0,
+      "written_sensors": 4,
+      "elapsed_sec": 0.8413622360676527
+    }
+  ],
+  "benchmark": {
+    "results_json": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/benchmark_results.json",
+    "summary_json": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/benchmark_summary.json",
+    "summary_csv": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/benchmark_summary.csv",
+    "plots": {
+      "serial": {
+        "speedup_plot": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/plots/speedup_serial.png",
+        "runtime_plot": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/plots/runtime_serial.png"
+      },
+      "replicated": {
+        "speedup_plot": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/plots/speedup_replicated.png",
+        "runtime_plot": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/plots/runtime_replicated.png"
+      },
+      "partitioned": {
+        "speedup_plot": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/plots/speedup_partitioned.png",
+        "runtime_plot": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/plots/runtime_partitioned.png"
+      }
+    }
+  },
+  "paper_artifacts": {
+    "benchmark_summary_csv": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/benchmark_summary.csv",
+    "benchmark_summary_json": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/benchmark_summary.json",
+    "benchmark_results_json": "analysis/2026-04-21_session_57014bda/outputs/workflow/benchmark/benchmark_results.json",
+    "reference_cleaning_summary_csv": "analysis/2026-04-21_session_a0c0ccc8/outputs/clean_serial/cleaning_summary.csv"
+  }
+}

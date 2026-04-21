@@ -1,0 +1,32 @@
+{
+  "workflow_dir": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow",
+  "cache_dir": "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/benchmarks/analysis/2026-04-21_session_f10c1ded/cache",
+  "inspection_report": null,
+  "normalized_summary": null,
+  "clean_runs": [],
+  "benchmark": {
+    "results_json": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/benchmark_results.json",
+    "summary_json": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/benchmark_summary.json",
+    "summary_csv": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/benchmark_summary.csv",
+    "plots": {
+      "serial": {
+        "speedup_plot": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/plots/speedup_serial.png",
+        "runtime_plot": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/plots/runtime_serial.png"
+      },
+      "replicated": {
+        "speedup_plot": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/plots/speedup_replicated.png",
+        "runtime_plot": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/plots/runtime_replicated.png"
+      },
+      "partitioned": {
+        "speedup_plot": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/plots/speedup_partitioned.png",
+        "runtime_plot": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/plots/runtime_partitioned.png"
+      }
+    }
+  },
+  "paper_artifacts": {
+    "benchmark_summary_csv": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/benchmark_summary.csv",
+    "benchmark_summary_json": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/benchmark_summary.json",
+    "benchmark_results_json": "analysis/2026-04-21_session_e2c9f19a/outputs/workflow/benchmark/benchmark_results.json",
+    "reference_cleaning_summary_csv": null
+  }
+}

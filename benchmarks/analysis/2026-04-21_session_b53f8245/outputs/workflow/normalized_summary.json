@@ -1,0 +1,41 @@
+{
+  "dataset_name": "workflow_smoke",
+  "n_rows": 2000,
+  "n_sensors": 4,
+  "sensor_columns": [
+    "Sensor_1",
+    "Sensor_2",
+    "Sensor_3",
+    "Sensor_4"
+  ],
+  "time_source": "Time",
+  "schema_mapping": {
+    "time_column": {
+      "original_name": "Time",
+      "normalized_name": "time",
+      "confidence": 1.0,
+      "candidate_scores": {
+        "Time": 22.5,
+        "Sensor_1": 4.5,
+        "Sensor_2": 4.5,
+        "Sensor_3": 4.5,
+        "Sensor_4": 4.5
+      },
+      "ambiguous": false
+    },
+    "sensor_columns": [
+      "Sensor_1",
+      "Sensor_2",
+      "Sensor_3",
+      "Sensor_4"
+    ],
+    "normalized_headers": [
+      "time",
+      "sensor_1",
+      "sensor_2",
+      "sensor_3",
+      "sensor_4"
+    ],
+    "notes": []
+  }
+}

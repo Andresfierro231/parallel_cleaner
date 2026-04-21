@@ -1,3 +1,11 @@
+'''
+File description:
+Signal characterization helpers for producing smooth dense representations.
+
+This stage is intentionally separate from cleaning so readers can distinguish
+between spike repair and downstream interpolation or spline fitting.
+'''
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,6 +19,7 @@ except Exception:  # pragma: no cover
 
 
 def characterize_signal(time: np.ndarray, values: np.ndarray, method: str = "cubic_spline", dense_factor: int = 4) -> dict:
+    """Create a dense smoothed representation of one cleaned signal."""
     time = np.asarray(time, dtype=float)
     values = np.asarray(values, dtype=float)
     order = np.argsort(time)
@@ -22,6 +31,7 @@ def characterize_signal(time: np.ndarray, values: np.ndarray, method: str = "cub
     unique_time, unique_idx = np.unique(time, return_index=True)
     time = unique_time
     values = values[unique_idx]
+    # Characterization requires sorted, non-missing, unique time samples.
     if time.size < 4:
         return {
             "method": "insufficient_points",

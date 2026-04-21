@@ -1,3 +1,11 @@
+'''
+File description:
+Standalone benchmark runner script built on top of the shared benchmark helpers.
+
+This script remains useful for users who want only timing data from an existing
+cache without invoking the broader workflow command.
+'''
+
 from __future__ import annotations
 
 import argparse
@@ -10,6 +18,7 @@ from ncdt_cleaner.utils import ensure_dir
 
 
 def main() -> int:
+    """Parse arguments and run the standalone scaling-study script."""
     parser = argparse.ArgumentParser(description="Run serial and MPI scaling studies")
     parser.add_argument("--cache-dir", required=True)
     parser.add_argument("--config", default="configs/default_config.json")

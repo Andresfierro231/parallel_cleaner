@@ -1,4 +1,8 @@
 #!/bin/bash
+# File description:
+# Batch-job template for launching the consolidated workflow command on a
+# cluster allocation. Replace the module lines and input path as needed.
+#
 #SBATCH -J ncdt_workflow
 #SBATCH -N 1
 #SBATCH -n 8

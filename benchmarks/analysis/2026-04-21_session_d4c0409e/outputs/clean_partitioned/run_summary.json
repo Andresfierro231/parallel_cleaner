@@ -1,0 +1,7 @@
+{
+  "mode": "partitioned",
+  "nproc": 2,
+  "rank": 0,
+  "written_sensors": 16,
+  "elapsed_sec": 309.1371703678742
+}

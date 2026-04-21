@@ -1,3 +1,11 @@
+'''
+File description:
+Synthetic dataset generator used for smoke tests and scaling experiments.
+
+This module gives the project a reproducible way to create larger benchmark
+inputs when a real dataset is too small for meaningful scaling measurements.
+'''
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,11 +21,14 @@ def generate_synthetic_timeseries(
     spike_fraction: float = 0.002,
     seed: int = 1234,
 ) -> Path:
+    """Generate a reproducible synthetic sensor dataset and save it as CSV."""
     out_path = Path(out_path)
     rng = np.random.default_rng(seed)
     time = np.linspace(0.0, 1000.0, n_rows)
     data = {"Time": time}
     for i in range(n_sensors):
+        # Each sensor gets slightly different dynamics so benchmark runs do not
+        # operate on duplicated columns.
         base = np.sin(time * (0.01 + 0.001 * i)) + 0.1 * rng.standard_normal(n_rows)
         drift = 0.001 * i * time
         signal = base + drift

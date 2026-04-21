@@ -1,3 +1,12 @@
+'''
+File description:
+High-level workflow orchestration for the end-to-end paper-oriented pipeline.
+
+This module is the glue that reduces the repo's previous manual steps into one
+command that can inspect data, build cache files, run analysis modes, and emit
+benchmark artifacts for the report.
+'''
+
 from __future__ import annotations
 
 import json
@@ -16,6 +25,7 @@ from .utils import ensure_dir
 
 
 def _run_json_command(command: list[str]) -> dict[str, Any]:
+    """Execute a child command and parse the JSON object it prints."""
     proc = subprocess.run(command, check=True, capture_output=True, text=True)
     stdout = proc.stdout.strip()
     if not stdout:
@@ -32,6 +42,7 @@ def _run_json_command(command: list[str]) -> dict[str, Any]:
 
 
 def _analysis_nproc(process_counts: list[int], requested_nproc: int | None) -> int:
+    """Choose a representative MPI size for the one-off analysis runs."""
     if requested_nproc is not None:
         return requested_nproc
     mpi_counts = [count for count in process_counts if count > 1]
@@ -39,11 +50,13 @@ def _analysis_nproc(process_counts: list[int], requested_nproc: int | None) -> i
 
 
 def _selected_modes(requested_modes: list[str] | None) -> list[str]:
+    """Return modes in a stable report-friendly order."""
     modes = set(requested_modes or MODE_ORDER)
     return [mode for mode in MODE_ORDER if mode in modes]
 
 
 def _clean_run_artifacts(payload: dict[str, Any]) -> dict[str, Any]:
+    """Augment a clean command payload with the artifact paths users expect."""
     output_dir = payload.get("output_dir")
     artifacts = {
         "output_dir": output_dir,
@@ -55,6 +68,7 @@ def _clean_run_artifacts(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
+    """Run the end-to-end workflow and write a consolidated report JSON."""
     selected_modes = _selected_modes(args.modes)
     process_counts = [int(value) for value in (args.process_counts or cfg["benchmark"]["process_counts"])]
     repeat = int(args.repeat or cfg["benchmark"]["repeat"])
@@ -69,11 +83,15 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
     cache_dir = Path(args.cache_dir) if args.cache_dir else Path(session["paths"]["cache_dir"])
     if args.input is not None:
         if not args.skip_inspect:
+            # Inspection is intentionally cheap and helps new users verify the
+            # input before cache generation changes anything on disk.
             reports = [inspect_file(args.input, cfg)]
             inspection_report = workflow_dir / "inspection_report.json"
             save_json(inspection_report, {"files": reports})
 
         if args.cache_dir is None:
+            # Rebuild the cache only when the user did not point us at an
+            # existing cache directory.
             df = read_tabular_file(args.input, sheet_name=args.sheet_name)
             dataset, summary = dataframe_to_sensor_dataset(df, Path(args.input).stem, cfg)
             write_sensor_cache(dataset, cache_dir, dtype=cfg["cache"]["dtype"])
@@ -86,6 +104,8 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
     clean_runs = []
     if not args.skip_clean_runs:
         for mode in selected_modes:
+            # These one-off analysis runs create concrete outputs that the user
+            # can inspect directly, separate from the repeated benchmark runs.
             command = clean_cli_command(
                 config_path=args.config,
                 cache_dir=cache_dir,
@@ -102,6 +122,8 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
 
     benchmark = None
     if not args.skip_benchmark:
+        # Benchmarks are kept separate from the one-off analysis runs so the
+        # paper artifacts reflect repeated timing measurements, not setup work.
         benchmark_rows = run_scaling_study(
             cache_dir=cache_dir,
             config_path=args.config,

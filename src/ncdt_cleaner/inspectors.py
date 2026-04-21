@@ -1,3 +1,11 @@
+'''
+File description:
+Input-file inspection helpers used before normalization and cache building.
+
+Inspection gives new users a quick, low-risk look at each input file so schema
+ambiguities and size issues can be understood before heavier processing begins.
+'''
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +27,7 @@ def inspect_file(
     config: dict,
     max_sample_rows: int = 5,
 ) -> dict[str, Any]:
+    """Inspect one supported file and summarize shape, samples, and schema."""
     path = Path(path)
     info: dict[str, Any] = {
         "path": str(path),
@@ -29,6 +38,8 @@ def inspect_file(
     suffix = path.suffix.lower()
 
     if suffix == ".csv":
+        # CSV inspection includes encoding and an estimated row count because
+        # those are common first debugging questions for new users.
         enc = detect_csv_encoding(path)
         df = read_tabular_file(path)
         schema = infer_schema(
@@ -62,6 +73,8 @@ def inspect_file(
         return info
 
     if suffix == ".xlsx":
+        # Spreadsheet inspection reports sheet names and a preview so users can
+        # confirm they are reading the intended worksheet.
         sample = quick_inspect(path)
         df = read_tabular_file(path)
         schema = infer_schema(
@@ -95,6 +108,7 @@ def inspect_file(
         return info
 
     if suffix in {".json", ".ndjson", ".h5", ".hdf5"}:
+        # The non-spreadsheet formats share a generic preview path.
         df = read_tabular_file(path)
         schema = infer_schema(
             df,

@@ -1,3 +1,11 @@
+'''
+File description:
+Small statistics and CSV-table helpers used across the pipeline.
+
+These helpers keep summary generation uniform so cleaning, characterization, and
+benchmark outputs are easy to compare and export into reports.
+'''
+
 from __future__ import annotations
 
 import json
@@ -9,6 +17,7 @@ from .models import SensorDataset
 
 
 def dataset_summary(dataset: SensorDataset) -> dict:
+    """Return a compact summary dictionary for a normalized dataset."""
     return {
         "dataset_name": dataset.name,
         "n_rows": dataset.n_rows(),
@@ -20,6 +29,7 @@ def dataset_summary(dataset: SensorDataset) -> dict:
 
 
 def write_csv_table(path: str | Path, rows: list[dict]) -> None:
+    """Write a list of dictionaries to a CSV table."""
     import csv
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

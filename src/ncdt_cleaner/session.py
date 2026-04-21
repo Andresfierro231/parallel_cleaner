@@ -1,3 +1,11 @@
+'''
+File description:
+Session-management helpers for creating dated analysis folders and logging.
+
+Every CLI command writes into its own session directory so experiments remain
+traceable and users can compare outputs without manually organizing files.
+'''
+
 from __future__ import annotations
 
 import json
@@ -10,6 +18,7 @@ from .utils import ensure_dir, host_info, now_utc_iso, short_id, today_str, try_
 
 
 def create_session(analysis_dir: str | Path, command_name: str, argv: list[str]) -> dict[str, Any]:
+    """Create a dated output directory tree and its session metadata."""
     analysis_dir = ensure_dir(analysis_dir)
     sid = f"{today_str()}_session_{short_id()}"
     session_dir = ensure_dir(Path(analysis_dir) / sid)
@@ -39,6 +48,7 @@ def create_session(analysis_dir: str | Path, command_name: str, argv: list[str])
 
 
 def configure_logging(log_path: str | Path) -> None:
+    """Configure file and console logging for the active session."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",

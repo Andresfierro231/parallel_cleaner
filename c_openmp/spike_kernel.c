@@ -1,9 +1,20 @@
+/*
+File description:
+Focused C/OpenMP comparison kernel for the spike-cleaning operation.
+
+This program is intentionally narrow. It is not the full application; it is a
+small shared-memory comparison point that mirrors the basic local-window spike
+repair idea discussed in the report.
+*/
+
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 static void clean_spikes(const double *x, double *y, int *flags, int n, int window, double zthr) {
+  /* Parallelize the outer loop because each point's local-window work is
+     independent once the input array is fixed. */
   #pragma omp parallel for schedule(static)
   for (int i = 0; i < n; ++i) {
     int left = i - window < 0 ? 0 : i - window;
@@ -35,6 +46,8 @@ static void clean_spikes(const double *x, double *y, int *flags, int n, int wind
 }
 
 int main(int argc, char **argv) {
+  /* This main function builds one synthetic signal, injects a few large spikes,
+     runs the kernel, and prints a minimal timing summary. */
   int n = 1000000;
   int window = 5;
   double zthr = 3.0;

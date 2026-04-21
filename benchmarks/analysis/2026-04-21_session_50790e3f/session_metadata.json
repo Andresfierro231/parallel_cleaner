@@ -1,0 +1,32 @@
+{
+  "session_id": "2026-04-21_session_50790e3f",
+  "command_name": "workflow",
+  "timestamp_utc": "2026-04-21T19:27:30Z",
+  "argv": [
+    "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/src/ncdt_cleaner/cli.py",
+    "--config",
+    "../configs/default_config.json",
+    "workflow",
+    "analysis/workflow_smoke.csv",
+    "--modes",
+    "serial",
+    "replicated",
+    "partitioned",
+    "--process-counts",
+    "2",
+    "--repeat",
+    "1",
+    "--analysis-nproc",
+    "2"
+  ],
+  "git_commit": "761c67c355657b4116924d8f332b478890c089aa",
+  "hostname": "c318-008.ls6.tacc.utexas.edu",
+  "platform": "Linux",
+  "paths": {
+    "session_dir": "analysis/2026-04-21_session_50790e3f",
+    "logs_dir": "analysis/2026-04-21_session_50790e3f/logs",
+    "outputs_dir": "analysis/2026-04-21_session_50790e3f/outputs",
+    "plots_dir": "analysis/2026-04-21_session_50790e3f/plots",
+    "cache_dir": "analysis/2026-04-21_session_50790e3f/cache"
+  }
+}

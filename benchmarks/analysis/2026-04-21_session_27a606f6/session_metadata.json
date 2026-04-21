@@ -1,0 +1,25 @@
+{
+  "session_id": "2026-04-21_session_27a606f6",
+  "command_name": "clean",
+  "timestamp_utc": "2026-04-21T19:29:42Z",
+  "argv": [
+    "/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/src/ncdt_cleaner/cli.py",
+    "--config",
+    "../configs/default_config.json",
+    "clean",
+    "--cache-dir",
+    "analysis/2026-04-21_session_50790e3f/cache",
+    "--mode",
+    "partitioned"
+  ],
+  "git_commit": "761c67c355657b4116924d8f332b478890c089aa",
+  "hostname": "c318-008.ls6.tacc.utexas.edu",
+  "platform": "Linux",
+  "paths": {
+    "session_dir": "analysis/2026-04-21_session_27a606f6",
+    "logs_dir": "analysis/2026-04-21_session_27a606f6/logs",
+    "outputs_dir": "analysis/2026-04-21_session_27a606f6/outputs",
+    "plots_dir": "analysis/2026-04-21_session_27a606f6/plots",
+    "cache_dir": "analysis/2026-04-21_session_27a606f6/cache"
+  }
+}

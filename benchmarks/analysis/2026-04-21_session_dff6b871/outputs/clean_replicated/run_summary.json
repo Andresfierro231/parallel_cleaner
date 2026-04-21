@@ -1,0 +1,7 @@
+{
+  "mode": "replicated",
+  "nproc": 2,
+  "rank": 0,
+  "written_sensors": 4,
+  "elapsed_sec": 0.6598928049206734
+}

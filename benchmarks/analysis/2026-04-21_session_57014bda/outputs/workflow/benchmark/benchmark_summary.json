@@ -1,0 +1,34 @@
+{
+  "summary": [
+    {
+      "mode": "serial",
+      "nproc": 1,
+      "elapsed_sec": 2.2740002274513245,
+      "repeat": 1,
+      "mean_elapsed_sec": 2.2740002274513245,
+      "max_elapsed_sec": 2.2740002274513245,
+      "speedup_vs_serial": 1.0,
+      "parallel_efficiency": 1.0
+    },
+    {
+      "mode": "replicated",
+      "nproc": 2,
+      "elapsed_sec": 2.4936993001028895,
+      "repeat": 1,
+      "mean_elapsed_sec": 2.4936993001028895,
+      "max_elapsed_sec": 2.4936993001028895,
+      "speedup_vs_serial": 0.9118983300662994,
+      "parallel_efficiency": 0.4559491650331497
+    },
+    {
+      "mode": "partitioned",
+      "nproc": 2,
+      "elapsed_sec": 2.72112434823066,
+      "repeat": 1,
+      "mean_elapsed_sec": 2.72112434823066,
+      "max_elapsed_sec": 2.72112434823066,
+      "speedup_vs_serial": 0.8356840542513001,
+      "parallel_efficiency": 0.41784202712565005
+    }
+  ]
+}

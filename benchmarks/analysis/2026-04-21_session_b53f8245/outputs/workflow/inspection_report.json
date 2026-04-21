@@ -1,0 +1,98 @@
+{
+  "files": [
+    {
+      "path": "analysis/workflow_smoke.csv",
+      "name": "workflow_smoke.csv",
+      "suffix": ".csv",
+      "size_bytes": 190166,
+      "encoding": "utf-8",
+      "estimated_rows": 2000,
+      "columns": [
+        "Time",
+        "Sensor_1",
+        "Sensor_2",
+        "Sensor_3",
+        "Sensor_4"
+      ],
+      "sample_rows": [
+        {
+          "Time": 0.0,
+          "Sensor_1": -0.1603836805396301,
+          "Sensor_2": 0.0229808374591876,
+          "Sensor_3": 0.1777505095472438,
+          "Sensor_4": -0.0318185083541
+        },
+        {
+          "Time": 0.5002501250625313,
+          "Sensor_1": 0.0114124717864132,
+          "Sensor_2": -0.0039887329051457,
+          "Sensor_3": -0.0697009502091743,
+          "Sensor_4": 0.0787615555657469
+        },
+        {
+          "Time": 1.0005002501250626,
+          "Sensor_1": 0.0840939651728417,
+          "Sensor_2": 0.1126608775417497,
+          "Sensor_3": -0.1009011343225928,
+          "Sensor_4": 0.0427665541521675
+        },
+        {
+          "Time": 1.500750375187594,
+          "Sensor_1": 0.0302688597701907,
+          "Sensor_2": 0.0861929921867467,
+          "Sensor_3": 0.0864917685320428,
+          "Sensor_4": -0.0042563114427493
+        },
+        {
+          "Time": 2.001000500250125,
+          "Sensor_1": 0.1063830588262326,
+          "Sensor_2": 0.2100358041852898,
+          "Sensor_3": -0.0375957784640628,
+          "Sensor_4": -0.0423422998439732
+        }
+      ],
+      "schema_mapping": {
+        "original_headers": [
+          "Time",
+          "Sensor_1",
+          "Sensor_2",
+          "Sensor_3",
+          "Sensor_4"
+        ],
+        "normalized_headers": [
+          "time",
+          "sensor_1",
+          "sensor_2",
+          "sensor_3",
+          "sensor_4"
+        ],
+        "time_column": {
+          "original_name": "Time",
+          "normalized_name": "time",
+          "confidence": 1.0,
+          "candidate_scores": {
+            "Time": 22.5,
+            "Sensor_1": 4.5,
+            "Sensor_2": 4.5,
+            "Sensor_3": 4.5,
+            "Sensor_4": 4.5
+          },
+          "reasoning": [
+            "name_score=15.00",
+            "value_score=7.50",
+            "values are monotone nondecreasing",
+            "values look like elapsed time"
+          ],
+          "ambiguous": false
+        },
+        "sensor_columns": [
+          "Sensor_1",
+          "Sensor_2",
+          "Sensor_3",
+          "Sensor_4"
+        ],
+        "notes": []
+      }
+    }
+  ]
+}

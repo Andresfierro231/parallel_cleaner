@@ -1,3 +1,11 @@
+'''
+File description:
+Normalization logic that converts heterogeneous tables into a common dataset.
+
+This stage bridges raw `pandas` DataFrames and the internal cache format by
+choosing the time column, selecting numeric sensors, and producing arrays.
+'''
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +25,7 @@ def dataframe_to_sensor_dataset(
     dataset_name: str,
     config: dict,
 ) -> tuple[SensorDataset, dict]:
+    """Convert a raw DataFrame into the project's normalized dataset object."""
     schema = infer_schema(
         df,
         manual_time_column=config["schema"].get("manual_time_column"),
@@ -40,6 +49,8 @@ def dataframe_to_sensor_dataset(
         else:
             parsed = pd.to_datetime(raw_time, errors="coerce")
             if parsed.notna().mean() > 0.9:
+                # Convert timestamps into elapsed seconds so later numerical
+                # stages can treat time as a plain floating-point array.
                 time = (parsed - parsed.iloc[0]).dt.total_seconds().to_numpy(dtype=float)
                 time_source = time_col
             elif config.get("allow_index_time_fallback", False):
@@ -50,6 +61,8 @@ def dataframe_to_sensor_dataset(
 
     sensors: dict[str, np.ndarray] = {}
     for col in schema.sensor_columns:
+        # All sensor channels are stored as float arrays so downstream code can
+        # use one predictable numeric representation.
         values = pd.to_numeric(df[col], errors="coerce").to_numpy(dtype=float)
         sensors[col] = values
 

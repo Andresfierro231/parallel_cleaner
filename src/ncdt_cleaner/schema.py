@@ -1,3 +1,11 @@
+'''
+File description:
+Schema inference helpers for identifying the time column and sensor columns.
+
+This module contains the heuristics that make the project more tolerant of
+messy engineering data with inconsistent headers and partially ambiguous fields.
+'''
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +34,7 @@ TIME_NAME_WEIGHTS = {
 
 
 def _score_name(normalized: str) -> float:
+    """Assign a heuristic score based on the normalized header text."""
     score = 0.0
     if normalized in TIME_NAME_WEIGHTS:
         score += TIME_NAME_WEIGHTS[normalized]
@@ -39,6 +48,7 @@ def _score_name(normalized: str) -> float:
 
 
 def _score_values(series: pd.Series) -> tuple[float, list[str]]:
+    """Score a candidate time column by inspecting sampled values."""
     notes: list[str] = []
     score = 0.0
     trimmed = series.dropna().head(2000)
@@ -70,6 +80,7 @@ def infer_time_column(
     df: pd.DataFrame,
     manual_time_column: str | None = None,
 ) -> TimeColumnInference:
+    """Infer the most likely time column in a heterogeneous table."""
     original_headers = list(map(str, df.columns.tolist()))
     normalized_headers = [normalize_header(c) for c in original_headers]
     if manual_time_column is not None:
@@ -89,6 +100,8 @@ def infer_time_column(
     scores: dict[str, float] = {}
     reasons: dict[str, list[str]] = {}
     for original, normalized in zip(original_headers, normalized_headers):
+        # Combine lightweight name heuristics with observed value behavior so
+        # columns can still score well even when headers are inconsistent.
         name_score = _score_name(normalized)
         value_score, notes = _score_values(df[original])
         score = name_score + value_score
@@ -120,6 +133,7 @@ def infer_sensor_columns(
     manual_sensor_columns: list[str] | None = None,
     exclude_columns: Iterable[str] | None = None,
 ) -> list[str]:
+    """Infer which columns should be treated as numeric sensor channels."""
     exclude = {normalize_header(c) for c in (exclude_columns or [])}
     if time_column is not None:
         exclude.add(normalize_header(time_column))
@@ -145,6 +159,7 @@ def infer_schema(
     manual_sensor_columns: list[str] | None = None,
     exclude_columns: list[str] | None = None,
 ) -> SchemaMapping:
+    """Infer the complete schema mapping used by normalization."""
     time_col = infer_time_column(df, manual_time_column=manual_time_column)
     sensors = infer_sensor_columns(
         df,

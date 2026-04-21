@@ -1,3 +1,11 @@
+'''
+File description:
+MPI execution strategies for replicated-data and partitioned-time cleaning.
+
+This module contains the two parallel execution modes discussed in the report:
+one simple replicated baseline and one partitioned approach with halo overlap.
+'''
+
 from __future__ import annotations
 
 import json
@@ -5,7 +13,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from ._mpi import MPI
+from ._mpi import MPI, ensure_mpi_initialized
 
 from .cache import load_sensor_cache
 from .characterize import characterize_signal
@@ -17,10 +25,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _rank_chunk(items: list[str], rank: int, size: int) -> list[str]:
+    """Assign items to ranks using a simple round-robin pattern."""
     return [item for i, item in enumerate(items) if i % size == rank]
 
 
 def run_replicated_mode(cache_dir: str | Path, output_dir: str | Path, cleaning_cfg: dict, char_cfg: dict, do_characterize: bool = False) -> dict:
+    """Run the replicated-data MPI strategy described in the paper."""
+    ensure_mpi_initialized()
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -31,6 +42,8 @@ def run_replicated_mode(cache_dir: str | Path, output_dir: str | Path, cleaning_
 
     local_payload = {}
     for sensor in local_sensors:
+        # Every rank reads the same cache, but only processes its assigned
+        # subset of sensors so the work is distributed.
         result = clean_sensor(np.asarray(dataset.sensors[sensor], dtype=float), cleaning_cfg)
         payload = {
             "cleaned": result.cleaned,
@@ -44,6 +57,7 @@ def run_replicated_mode(cache_dir: str | Path, output_dir: str | Path, cleaning_
     gathered = comm.gather(local_payload, root=0)
     summary = {"mode": "replicated", "nproc": size, "rank": rank}
     if rank == 0:
+        # Rank 0 merges payloads and performs all file writes for the mode.
         merged = {}
         for part in gathered:
             merged.update(part)
@@ -63,6 +77,8 @@ def run_replicated_mode(cache_dir: str | Path, output_dir: str | Path, cleaning_
 
 
 def run_partitioned_mode(cache_dir: str | Path, output_dir: str | Path, cleaning_cfg: dict) -> dict:
+    """Run the partitioned time-domain MPI strategy with halo overlap."""
+    ensure_mpi_initialized()
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -78,6 +94,8 @@ def run_partitioned_mode(cache_dir: str | Path, output_dir: str | Path, cleaning
 
     local_payload = {}
     for sensor, values in dataset.sensors.items():
+        # Halo overlap preserves local-window correctness near the partition
+        # boundaries of each rank's time segment.
         segment = np.asarray(values[halo_start:halo_end], dtype=float)
         result = clean_sensor(segment, cleaning_cfg)
         trim_left = start - halo_start
@@ -90,6 +108,8 @@ def run_partitioned_mode(cache_dir: str | Path, output_dir: str | Path, cleaning
     gathered = comm.gather((start, end, local_payload), root=0)
     summary = {"mode": "partitioned", "nproc": size, "rank": rank}
     if rank == 0:
+        # Root rank reconstructs full-length arrays and writes the summary
+        # statistics that the report can consume directly.
         out_dir = ensure_dir(output_dir)
         sensors_dir = ensure_dir(Path(out_dir) / "sensors")
         summary_rows = []

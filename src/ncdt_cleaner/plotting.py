@@ -1,3 +1,11 @@
+'''
+File description:
+Plot-generation helpers for benchmark runtime and speedup figures.
+
+The benchmark workflow writes both machine-readable JSON and human-readable
+plots so results can be inspected quickly and embedded in the paper draft.
+'''
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,6 +15,7 @@ import numpy as np
 
 
 def plot_speedup(results: list[dict], out_dir: str | Path) -> dict:
+    """Generate per-mode runtime and speedup plots from benchmark rows."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,3 +1,11 @@
+'''
+File description:
+File-reading utilities for CSV, JSON, HDF5, and XLSX-like spreadsheet inputs.
+
+The project supports several tabular formats, so this module centralizes the
+format detection and loading rules used by inspection and cache building.
+'''
+
 from __future__ import annotations
 
 import csv
@@ -16,6 +24,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def detect_csv_encoding(path: str | Path) -> str:
+    """Try a few practical encodings before falling back to latin1."""
     for enc in ("utf-8", "latin1", "cp1252"):
         try:
             with open(path, "r", encoding=enc) as f:
@@ -27,12 +36,14 @@ def detect_csv_encoding(path: str | Path) -> str:
 
 
 def read_csv_frame(path: str | Path, chunksize: int | None = None) -> pd.DataFrame | Iterator[pd.DataFrame]:
+    """Read a CSV file with a best-effort encoding guess."""
     enc = detect_csv_encoding(path)
     LOGGER.info("Reading CSV %s with encoding=%s", path, enc)
     return pd.read_csv(path, encoding=enc, chunksize=chunksize)
 
 
 def read_json_frame(path: str | Path) -> pd.DataFrame:
+    """Read JSON or NDJSON into a flat DataFrame when possible."""
     path = Path(path)
     if path.suffix.lower() == ".ndjson":
         return pd.read_json(path, lines=True)
@@ -48,6 +59,7 @@ def read_json_frame(path: str | Path) -> pd.DataFrame:
 
 
 def read_hdf5_frame(path: str | Path) -> pd.DataFrame:
+    """Read a simple HDF5 layout into a DataFrame."""
     path = Path(path)
     with h5py.File(path, "r") as h5:
         if "table" in h5:
@@ -65,6 +77,7 @@ def read_hdf5_frame(path: str | Path) -> pd.DataFrame:
 
 
 def read_tabular_file(path: str | Path, sheet_name: str | None = None) -> pd.DataFrame:
+    """Dispatch tabular-file loading based on the filename extension."""
     path = Path(path)
     suffix = path.suffix.lower()
     if suffix == ".csv":
@@ -79,6 +92,7 @@ def read_tabular_file(path: str | Path, sheet_name: str | None = None) -> pd.Dat
 
 
 def estimate_csv_rows(path: str | Path) -> int | None:
+    """Estimate the row count of a CSV cheaply without parsing the whole file."""
     try:
         enc = detect_csv_encoding(path)
         with open(path, "r", encoding=enc, errors="replace") as f:
