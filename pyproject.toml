@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ncdt-cleaner"
+version = "0.1.0"
+description = "MPI-aware sensor cleaning and characterization pipeline"
+authors = [
+  {name = "Project Skeleton Generator"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "matplotlib>=3.7",
+  "h5py>=3.9",
+  "mpi4py>=3.1",
+]
+
+[project.optional-dependencies]
+accel = [
+  "numba>=0.58",
+  "scipy>=1.11",
+]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

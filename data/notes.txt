@@ -1,0 +1,2 @@
+INPUT_FILE=/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/data/vcu_data_deposit/MSETF-2-Forced_Convection_Data/02192026/Test00.xlsx
+CACHE_DIR=analysis/2026-04-21_session_15c0636a/cache

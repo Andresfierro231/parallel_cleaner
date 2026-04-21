@@ -1,0 +1,36 @@
+{
+  "analysis_dir": "analysis",
+  "allow_index_time_fallback": true,
+  "default_time_unit": "seconds",
+  "schema": {
+    "manual_time_column": null,
+    "manual_sensor_columns": null,
+    "exclude_columns": [],
+    "sensor_name_keywords": [
+      "tube", "shell", "tc", "temperature", "flow", "pressure", "dpt", "sensor"
+    ]
+  },
+  "cleaning": {
+    "window_radius": 5,
+    "z_threshold": 3.0,
+    "absolute_jump_threshold": 0.0,
+    "strategy": "local_mean",
+    "clip_max": null,
+    "nan_policy": "interpolate"
+  },
+  "characterization": {
+    "method": "cubic_spline",
+    "dense_factor": 4
+  },
+  "cache": {
+    "dtype": "float64"
+  },
+  "benchmark": {
+    "repeat": 3,
+    "process_counts": [1, 2, 4, 8]
+  },
+
+  "__comment_saving_prcs_nums__": {
+    "Set nproc to match available cores":{},
+    "nproc": [1, 2, 4, 8, 16, 32, 48, 64, 80, 96, 128]}
+}

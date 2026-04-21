@@ -1,0 +1,173 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  breaklines=true,
+  columns=fullflexible
+}
+
+\title{Parallel Sensor Data Cleaning and Characterization with MPI}
+\author{Your Name \\ EID: \_\_\_\_\_\_ \\ TACC Username: \_\_\_\_\_\_ \\ Email: \_\_\_\_\_\_}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This project studies a modular workflow for cleaning noisy sensor data, characterizing the cleaned signal in time, and analyzing the performance tradeoffs of multiple parallelization strategies. The implementation uses Python with \texttt{mpi4py} as the main distributed-memory interface, optional accelerated local kernels, and a focused C/OpenMP companion kernel for shared-memory comparison. The baseline design starts with a replicated-data MPI strategy in which each rank holds a full copy of the dataset, since this simplifies neighborhood-based cleaning. The study then contrasts this baseline with a partitioned time-domain approach that uses halo overlap to preserve local-window correctness. The results are intended to support both a class-scale project and future large-scale archival workflows involving many GB or TB of CSV files.
+\end{abstract}
+
+\section{Introduction}
+This project treats programming as an experimental study: define the problem, implement candidate strategies, measure performance, and explain the observations. The computational goal is to identify unrealistic spikes or noisy data points, repair them using configurable rules, compute descriptive statistics, and build local characterizations of the cleaned data in time. The software is written as a reusable pipeline rather than a one-off script so it can serve both a report-quality course project and a future larger data-processing workflow.
+
+\section{Problem Statement}
+Given an input table containing time and one or more numeric sensor channels, the program must:
+\begin{enumerate}[label=\arabic*.]
+  \item inspect the file and infer the schema,
+  \item identify the time column despite irregular headers,
+  \item identify sensor columns,
+  \item detect spikes based on a configurable local neighborhood,
+  \item repair flagged points according to a user-selected strategy,
+  \item compute descriptive statistics before and after cleaning,
+  \item construct a smooth characterization of the cleaned signal,
+  \item support serial and parallel execution,
+  \item log all analysis artifacts in a dated session directory.
+\end{enumerate}
+
+\section{Data and File Formats}
+The code supports CSV, XLSX, HDF5, JSON, and NDJSON input. Since real engineering data often use inconsistent headers, the schema layer normalizes names before scoring likely time columns. Examples include \texttt{Time}, \texttt{time}, \texttt{T}, \texttt{seconds}, \texttt{sec}, \texttt{s}, \texttt{timestamp}, and \texttt{datetime}. When inference remains ambiguous, the program records that ambiguity in the session log and allows explicit override from the CLI or config file.
+
+For large archival workflows, the pipeline converts normalized data into a binary cache containing:
+\begin{itemize}
+  \item \texttt{time.npy},
+  \item one \texttt{.npy} file per sensor,
+  \item a metadata JSON file with schema and provenance.
+\end{itemize}
+This design separates expensive raw ingest from later computation and enables memmap-backed access.
+
+\section{Methodology}
+\subsection{Cleaning algorithm}
+For each point $x_i$, the code examines a local window of radius $w$. The center point is compared against statistics of its neighborhood. A point is flagged if its deviation from the local mean exceeds a configurable threshold based on local standard deviation and/or an absolute jump threshold. After flagging, the code applies one of four strategies:
+\begin{itemize}
+  \item drop the point,
+  \item replace with the nearest valid neighbor,
+  \item replace with the local average,
+  \item replace with a clipped value.
+\end{itemize}
+
+\subsection{Characterization}
+After cleaning, each signal is characterized with either:
+\begin{itemize}
+  \item a cubic spline when SciPy is available, or
+  \item a fallback interpolation path when optional spline support is unavailable.
+\end{itemize}
+This stage is intentionally separated from spike removal so the report can distinguish ``repair'' from ``smooth characterization.''
+
+\section{Parallelization Strategy}
+The parallel structure follows the application structure. Cleaning each sensor channel is largely independent, but each point depends on a neighborhood in time.
+
+\subsection{Serial baseline}
+The serial baseline reads the normalized cache and processes each sensor sequentially. This run is the correctness reference and the denominator in speedup calculations.
+
+\subsection{Replicated-data MPI baseline}
+The first MPI version gives each rank a full copy of the dataset and distributes sensors across ranks. This is a deliberately simple baseline because it avoids boundary complications in neighborhood windows. It is attractive when:
+\begin{itemize}
+  \item the dataset fits easily in memory on every rank,
+  \item implementation simplicity matters,
+  \item the primary goal is a first correct MPI version.
+\end{itemize}
+
+\subsection{Partitioned time-domain MPI}
+The second MPI version partitions each sensor in the time dimension. Each rank receives a contiguous time segment plus halo overlap of width $w$ on each side. Each rank cleans its local segment, trims the halo, and the root rank reassembles the output. This strategy reduces memory replication but introduces:
+\begin{itemize}
+  \item overlap duplication,
+  \item assembly overhead,
+  \item more careful bookkeeping.
+\end{itemize}
+
+\subsection{Why MPI? Why also mention OpenMP?}
+MPI is the main mechanism because the long-term workflow must scale beyond one shared-memory node and must be compatible with large archival processing. However, the local-window cleaning kernel is also a natural shared-memory loop, so a small C/OpenMP comparison is included to study a simpler shared-memory version of the inner operation.
+
+\section{Software Architecture}
+The repository is organized into clearly named subdirectories:
+\begin{itemize}
+  \item \texttt{src/ncdt\_cleaner/} for the package,
+  \item \texttt{configs/} for configuration,
+  \item \texttt{analysis/} for generated sessions,
+  \item \texttt{benchmarks/} for scaling scripts,
+  \item \texttt{reports/} for the write-up,
+  \item \texttt{c\_openmp/} for the companion comparison.
+\end{itemize}
+
+Key modules include:
+\begin{itemize}
+  \item \texttt{schema.py}: header normalization and schema inference,
+  \item \texttt{inspectors.py}: raw file inspection,
+  \item \texttt{normalization.py}: conversion to a unified internal data model,
+  \item \texttt{cache.py}: binary cache creation and loading,
+  \item \texttt{cleaning.py}: spike detection and repair,
+  \item \texttt{mpi\_modes.py}: replicated and partitioned MPI execution.
+\end{itemize}
+
+\section{Experimental Setup}
+The report should measure:
+\begin{itemize}
+  \item serial runtime,
+  \item replicated MPI runtime at multiple process counts,
+  \item partitioned MPI runtime at multiple process counts,
+  \item memory footprint observations for each mode,
+  \item scaling across at least one larger synthetic dataset if the supplied data are too small.
+\end{itemize}
+
+To reduce timing noise:
+\begin{itemize}
+  \item repeat each benchmark several times,
+  \item time only the main computational region,
+  \item compare both single-node and multi-node runs when possible.
+\end{itemize}
+
+\section{Planned Results Presentation}
+The final report should include:
+\begin{enumerate}[label=\arabic*.]
+  \item a runtime scaling plot with logarithmic runtime axis,
+  \item a speedup plot relative to serial execution,
+  \item a table summarizing flagged-point fractions and cleaning statistics,
+  \item a discussion of where scaling deviates from the ideal line,
+  \item a short comparison of MPI vs OpenMP memory and synchronization tradeoffs.
+\end{enumerate}
+
+\section{Limitations and Future Work}
+This project skeleton intentionally prioritizes correctness, modularity, and traceability. Future extensions include:
+\begin{itemize}
+  \item richer HDF5 schemas,
+  \item higher-performance out-of-core multi-file ingestion,
+  \item explicit Cython kernels,
+  \item streaming adapters that continuously append to the cache,
+  \item direct integration with a live dashboard data provider.
+\end{itemize}
+
+\section{Conclusion}
+The project is well-suited to a scientific-style course report because it has a clear computational structure, meaningful algorithmic choices, and measurable parallel tradeoffs. The replicated MPI version is a good first correctness baseline, while the partitioned version better reflects long-term large-data needs. The software architecture is designed so that the same codebase can support demonstration runs now and much larger archival workflows later.
+
+
+
+\end{document}

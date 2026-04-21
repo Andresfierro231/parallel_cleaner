@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.npy
+*.png
+*.pdf
+*.csv
+.venv
+*.tsv
+data/
+analysis/*session*
+analysis/*/cache/
+analysis/*/outputs/
+analysis/*/plots/

@@ -1,0 +1,12 @@
+numpy>=1.24
+pandas>=2.0
+matplotlib>=3.7
+h5py>=3.9
+mpi4py>=3.1
+
+[accel]
+numba>=0.58
+scipy>=1.11
+
+[dev]
+pytest>=8.0
