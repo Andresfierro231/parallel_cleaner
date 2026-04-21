@@ -6,8 +6,14 @@
 
 set -euo pipefail
 
+# FIXME: replace with the raw input file you want to benchmark.
 INPUT_PATH="${1:-analysis/synth_2e6_16s.csv}"
 
 python -m ncdt_cleaner.cli workflow "$INPUT_PATH" \
+  --modes serial replicated partitioned \
+  --process-counts 2 4 8
+
+python benchmarks/run_scaling.py \
+  --input-file "$INPUT_PATH" \
   --modes serial replicated partitioned \
   --process-counts 2 4 8

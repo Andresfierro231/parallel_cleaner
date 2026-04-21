@@ -16,11 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from .benchmarks import MODE_ORDER, clean_cli_command, mpi_wrapped_command, run_scaling_study, write_benchmark_results
-from .cache import write_sensor_cache
+from .cache import ensure_cache_for_input
 from .config import save_json
 from .inspectors import inspect_file
-from .normalization import dataframe_to_sensor_dataset
-from .readers import read_tabular_file
 from .utils import ensure_dir
 
 
@@ -79,6 +77,7 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
 
     inspection_report = None
     normalized_summary = None
+    cache_resolution = None
 
     cache_dir = Path(args.cache_dir) if args.cache_dir else Path(session["paths"]["cache_dir"])
     if args.input is not None:
@@ -89,14 +88,29 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
             inspection_report = workflow_dir / "inspection_report.json"
             save_json(inspection_report, {"files": reports})
 
-        if args.cache_dir is None:
-            # Rebuild the cache only when the user did not point us at an
-            # existing cache directory.
-            df = read_tabular_file(args.input, sheet_name=args.sheet_name)
-            dataset, summary = dataframe_to_sensor_dataset(df, Path(args.input).stem, cfg)
-            write_sensor_cache(dataset, cache_dir, dtype=cfg["cache"]["dtype"])
+        # Prefer reusing a compatible cache so benchmark jobs can start directly
+        # from a raw input file without manual cache-dir copying.
+        cache_resolution = ensure_cache_for_input(
+            input_path=args.input,
+            config_path=args.config,
+            config=cfg,
+            analysis_dir=cfg["analysis_dir"],
+            sheet_name=args.sheet_name,
+            target_cache_dir=cache_dir,
+            target_session_dir=session["paths"]["session_dir"],
+        )
+        cache_dir = Path(cache_resolution["cache_dir"])
+        if cache_resolution.get("summary") is not None:
             normalized_summary = workflow_dir / "normalized_summary.json"
-            save_json(normalized_summary, summary)
+            save_json(normalized_summary, cache_resolution["summary"])
+
+    elif args.cache_dir is not None:
+        cache_resolution = {
+            "status": "provided",
+            "cache_dir": str(Path(args.cache_dir).resolve()),
+            "cache_metadata_path": None,
+            "matched_session_dir": None,
+        }
 
     cache_dir = cache_dir.resolve()
     analysis_nproc = _analysis_nproc(process_counts, args.analysis_nproc)
@@ -140,6 +154,7 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
     report = {
         "workflow_dir": str(workflow_dir),
         "cache_dir": str(cache_dir),
+        "cache_resolution": cache_resolution,
         "inspection_report": str(inspection_report) if inspection_report else None,
         "normalized_summary": str(normalized_summary) if normalized_summary else None,
         "clean_runs": clean_runs,

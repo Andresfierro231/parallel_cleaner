@@ -12,3 +12,4 @@ analysis/*session*
 analysis/*/cache/
 analysis/*/outputs/
 analysis/*/plots/
+*sess*

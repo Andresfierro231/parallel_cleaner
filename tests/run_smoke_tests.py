@@ -34,6 +34,20 @@ def main() -> int:
         check=True,
         cwd=root,
     )
+    subprocess.run(
+        [
+            sys.executable,
+            "benchmarks/run_scaling.py",
+            "--input-file",
+            str(sample_out),
+            "--modes",
+            "serial",
+            "--repeat",
+            "1",
+        ],
+        check=True,
+        cwd=root,
+    )
     return 0
 
 

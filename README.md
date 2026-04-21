@@ -79,6 +79,26 @@ If you already have a cache, reuse it directly:
 python -m ncdt_cleaner.cli workflow --cache-dir analysis/<session>/cache
 ```
 
+For benchmark-only automation starting from a raw input file, use:
+
+```bash
+python benchmarks/run_scaling.py \
+  --input-file /path/to/Test00.xlsx \
+  --process-counts 2 4 8
+```
+
+This will:
+- search `analysis/*_session_*/cache_metadata.json` for a matching cache,
+- reuse the cache when the input file and config match,
+- build a new cache automatically when no match exists,
+- write benchmark outputs without requiring any manual `cache_dir` copy step.
+
+Direct `cache-build` runs now also write a top-level machine-readable file:
+
+```text
+analysis/YYYY-MM-DD_session_<id>/cache_metadata.json
+```
+
 ## Notes on file irregularities
 
 The code never assumes:

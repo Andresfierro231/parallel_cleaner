@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from .cache import load_sensor_cache, write_sensor_cache
+from .cache import load_sensor_cache, write_cache_metadata, write_sensor_cache
 from .characterize import characterize_signal
 from .cleaning import clean_sensor
 from .config import load_config, save_json
@@ -90,8 +90,25 @@ def cmd_cache_build(args, cfg, session):
     dataset, summary = dataframe_to_sensor_dataset(df, Path(args.input).stem, cfg)
     cache_dir = Path(session["paths"]["cache_dir"])
     write_sensor_cache(dataset, cache_dir, dtype=cfg["cache"]["dtype"])
+    cache_metadata_path = write_cache_metadata(
+        cache_dir,
+        input_path=args.input,
+        config_path=args.config,
+        dataset_summary=summary,
+        sheet_name=args.sheet_name,
+        session_dir=session["paths"]["session_dir"],
+    )
     save_json(Path(session["paths"]["outputs_dir"]) / "normalized_summary.json", summary)
-    print(json.dumps({"cache_dir": str(cache_dir), "summary": summary}, indent=2))
+    print(
+        json.dumps(
+            {
+                "cache_dir": str(cache_dir),
+                "cache_metadata_path": str(cache_metadata_path),
+                "summary": summary,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_clean(args, cfg, session):
