@@ -22,6 +22,19 @@
     "method": "cubic_spline",
     "dense_factor": 4
   },
+  "steady_state": {
+    "steady_window_seconds": 60.0,
+    "min_steady_duration_seconds": 60.0,
+    "min_points_per_window": 5,
+    "change_fraction_of_scale": 0.15,
+    "std_fraction_of_scale": 0.10,
+    "slope_tolerance_per_second": null,
+    "max_change_in_window": null,
+    "max_std_in_window": null,
+    "groups": {
+      "all_sensors": ["*"]
+    }
+  },
   "cache": {
     "dtype": "float64"
   },

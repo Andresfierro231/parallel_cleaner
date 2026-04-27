@@ -60,6 +60,10 @@ def _clean_run_artifacts(payload: dict[str, Any]) -> dict[str, Any]:
         "output_dir": output_dir,
         "run_summary_json": str(Path(output_dir) / "run_summary.json") if output_dir else None,
         "cleaning_summary_csv": str(Path(output_dir) / "cleaning_summary.csv") if output_dir else None,
+        "characterization_summary_csv": str(Path(output_dir) / "characterization_summary.csv") if output_dir else None,
+        "steady_state_summary_csv": str(Path(output_dir) / "steady_state_summary.csv") if output_dir else None,
+        "steady_state_groups_summary_csv": str(Path(output_dir) / "steady_state_groups_summary.csv") if output_dir else None,
+        "steady_state_report_md": str(Path(output_dir) / "steady_state_report.md") if output_dir else None,
     }
     artifacts.update(payload)
     return artifacts
@@ -114,6 +118,7 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
 
     cache_dir = cache_dir.resolve()
     analysis_nproc = _analysis_nproc(process_counts, args.analysis_nproc)
+    steady_window_seconds = args.steady_window_seconds
 
     clean_runs = []
     if not args.skip_clean_runs:
@@ -126,6 +131,7 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
                 mode=mode,
                 characterize=args.characterize,
                 python_executable=sys.executable,
+                steady_window_seconds=steady_window_seconds,
             )
             nproc = 1
             if mode != "serial":
@@ -147,6 +153,8 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
             characterize=args.characterize,
             python_executable=sys.executable,
             mpi_launcher=args.mpi_launcher,
+            log_dir=workflow_dir / "benchmark" / "logs",
+            steady_window_seconds=steady_window_seconds,
         )
         benchmark_dir = ensure_dir(workflow_dir / "benchmark")
         benchmark = write_benchmark_results(benchmark_dir, benchmark_rows)
@@ -165,6 +173,18 @@ def run_workflow(args, cfg: dict, session: dict) -> dict[str, Any]:
             "benchmark_results_json": benchmark["results_json"] if benchmark else None,
             "reference_cleaning_summary_csv": next(
                 (run["cleaning_summary_csv"] for run in clean_runs if run.get("cleaning_summary_csv")),
+                None,
+            ),
+            "reference_steady_state_summary_csv": next(
+                (run["steady_state_summary_csv"] for run in clean_runs if run.get("steady_state_summary_csv")),
+                None,
+            ),
+            "reference_steady_state_groups_summary_csv": next(
+                (run["steady_state_groups_summary_csv"] for run in clean_runs if run.get("steady_state_groups_summary_csv")),
+                None,
+            ),
+            "reference_steady_state_report_md": next(
+                (run["steady_state_report_md"] for run in clean_runs if run.get("steady_state_report_md")),
                 None,
             ),
         },

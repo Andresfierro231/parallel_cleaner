@@ -1,2 +1,35 @@
 INPUT_FILE=/scratch/09748/andresfierro231/projects_scratch/ncdt_parallel_cleaner_project/data/vcu_data_deposit/MSETF-2-Forced_Convection_Data/02192026/Test00.xlsx
 CACHE_DIR=analysis/2026-04-21_session_15c0636a/cache
+
+----------------------------------------
+
+CAMPAIGN_DIR="analysis/synthetic_campaigns/scaling_default"
+
+mapfile -t DATASETS < <(
+python - <<'PY'
+import json
+with open("analysis/synthetic_campaigns/scaling_default/campaign_manifest.json", "r", encoding="utf-8") as f:
+    manifest = json.load(f)
+for d in manifest["datasets"]:
+    if d["format"] == "csv":
+        print(d["path"])
+PY
+)
+
+for INPUT_PATH in "${DATASETS[@]}"; do
+    STEM=$(basename "$INPUT_PATH")
+    STEM="${STEM%.*}"
+    OUTDIR="analysis/full_matrix/$STEM"
+
+    sbatch \
+      -J "ncdt_${STEM}" \
+      -N 1 \
+      -n 8 \
+      -p NuclearEnergy \
+      -A ASC23046 \
+      -t 48:00:00 \
+      -o "analysis/slurm-${STEM}-%j.out" \
+      -e "analysis/slurm-${STEM}-%j.err" \
+      --wrap="cd $PWD && source .venv/bin/activate && PYTHONPATH=src python benchmarks/run_scaling.py --input-file '$INPUT_PATH' --modes serial replicated partitioned --process-counts 2 4 8 --repeat 3 --mpi-launcher mpirun --out-dir '$OUTDIR'"
+done
+

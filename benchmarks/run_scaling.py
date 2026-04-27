@@ -73,6 +73,7 @@ def main() -> int:
         modes=args.modes,
         characterize=args.characterize,
         mpi_launcher=args.mpi_launcher,
+        log_dir=Path(out_dir) / "logs",
     )
     artifacts = write_benchmark_results(out_dir, rows)
     report = {

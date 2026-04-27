@@ -16,6 +16,7 @@ import sys
 import time
 from pathlib import Path
 
+from .behavior import analyze_signal_behavior, summarize_group_behaviors, write_behavior_outputs
 from .cache import load_sensor_cache, write_cache_metadata, write_sensor_cache
 from .characterize import characterize_signal
 from .cleaning import clean_sensor
@@ -23,6 +24,7 @@ from .config import load_config, save_json
 from .inspectors import inspect_file
 from .mpi_modes import run_partitioned_mode, run_replicated_mode
 from .normalization import dataframe_to_sensor_dataset
+from .plotting import plot_rate_of_change
 from .readers import read_tabular_file
 from .session import create_session
 from .stats import write_csv_table
@@ -31,6 +33,30 @@ from .utils import ensure_dir, normalize_header
 from .workflow import run_workflow
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _add_steady_state_override_arg(parser: argparse.ArgumentParser) -> None:
+    """Add the user-facing steady-state convenience override to a parser."""
+    parser.add_argument(
+        "--steady-window-seconds",
+        type=float,
+        default=None,
+        help=(
+            "Override the steady-state window length in seconds. "
+            "For convenience, this also sets the minimum required steady duration."
+        ),
+    )
+
+
+def _apply_cli_overrides(cfg: dict, args) -> dict:
+    """Apply small user-facing CLI overrides without rewriting the config file."""
+    effective = json.loads(json.dumps(cfg))
+    steady_window = getattr(args, "steady_window_seconds", None)
+    if steady_window is not None:
+        effective.setdefault("steady_state", {})
+        effective["steady_state"]["steady_window_seconds"] = float(steady_window)
+        effective["steady_state"]["min_steady_duration_seconds"] = float(steady_window)
+    return effective
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,14 +76,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cache-dir", required=True)
     p.add_argument("--mode", choices=["serial", "replicated", "partitioned"], default="serial")
     p.add_argument("--characterize", action="store_true")
+    _add_steady_state_override_arg(p)
 
     p = sub.add_parser("characterize")
     p.add_argument("--cache-dir", required=True)
+    _add_steady_state_override_arg(p)
 
     p = sub.add_parser("synth")
     p.add_argument("--out", required=True)
     p.add_argument("--n-rows", type=int, default=200000)
     p.add_argument("--n-sensors", type=int, default=8)
+    p.add_argument("--noise-sigma", type=float, default=0.1)
+    p.add_argument("--spike-fraction", type=float, default=0.002)
+    p.add_argument("--seed", type=int, default=1234)
+    p.add_argument("--time-mode", choices=["numeric", "datetime", "indexless"], default="numeric")
+    p.add_argument("--header-style", choices=["standard", "irregular"], default="standard")
+    p.add_argument("--include-junk-columns", action="store_true")
+    p.add_argument("--flat-fraction", type=float, default=0.0)
+    p.add_argument("--dropout-fraction", type=float, default=0.0)
+    p.add_argument("--output-format", choices=["csv", "json", "ndjson", "xlsx"], default=None)
 
     p = sub.add_parser("workflow")
     p.add_argument("input", nargs="?")
@@ -72,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skip-inspect", action="store_true")
     p.add_argument("--skip-clean-runs", action="store_true")
     p.add_argument("--skip-benchmark", action="store_true")
+    _add_steady_state_override_arg(p)
 
     return parser
 
@@ -114,7 +152,7 @@ def cmd_cache_build(args, cfg, session):
 def cmd_clean(args, cfg, session):
     """Execute one cleaning mode against an existing cache directory."""
     from ._mpi import MPI, MPI_AVAILABLE, ensure_mpi_initialized, finalize_mpi
-    
+    cfg = _apply_cli_overrides(cfg, args)
     output_dir = ensure_dir(Path(session["paths"]["outputs_dir"]) / f"clean_{args.mode}")
     rank = 0
     comm = None
@@ -133,30 +171,95 @@ def cmd_clean(args, cfg, session):
     if args.mode == "serial":
         # Serial mode is the simplest correctness baseline and does not rely on
         # any MPI communication.
+        t_load0 = time.perf_counter()
         dataset = load_sensor_cache(args.cache_dir, mmap_mode="r")
+        load_elapsed = time.perf_counter() - t_load0
         summary_rows = []
+        characterization_rows = []
+        behavior_summaries: dict[str, dict] = {}
+        behavior_details: dict[str, dict] = {}
         sensors_dir = ensure_dir(output_dir / "sensors")
+        compute_elapsed = 0.0
+        characterize_elapsed = 0.0
+        write_elapsed = 0.0
         for sensor, values in dataset.sensors.items():
+            t_compute0 = time.perf_counter()
             result = clean_sensor(values, cfg["cleaning"])
+            compute_elapsed += time.perf_counter() - t_compute0
             import numpy as np
+            t_write0 = time.perf_counter()
             np.save(sensors_dir / f"{normalize_header(sensor)}_cleaned.npy", result.cleaned)
             np.save(sensors_dir / f"{normalize_header(sensor)}_flags.npy", result.flags.astype('uint8'))
+            write_elapsed += time.perf_counter() - t_write0
             if args.characterize:
+                t_char0 = time.perf_counter()
                 char = characterize_signal(dataset.time, result.cleaned, **cfg["characterization"])
+                behavior, behavior_detail = analyze_signal_behavior(dataset.time, result.cleaned, cfg.get("steady_state"))
+                characterize_elapsed += time.perf_counter() - t_char0
+                t_char_write0 = time.perf_counter()
                 with open(sensors_dir / f"{normalize_header(sensor)}_characterization.json", "w", encoding="utf-8") as f:
                     json.dump(char, f)
+                write_elapsed += time.perf_counter() - t_char_write0
+                characterization_rows.append(
+                    {
+                        "sensor": sensor,
+                        "method": char["method"],
+                        "n_dense": len(char["dense_time"]),
+                        "rate_of_change_plot": plot_rate_of_change(
+                            dataset.time,
+                            result.cleaned,
+                            sensors_dir / f"{normalize_header(sensor)}_rate_of_change.png",
+                            title=f"{sensor}: cleaned signal and rate of change",
+                            steady_segments=behavior.get("steady_segments"),
+                        ),
+                        "steady_state_summary": behavior["summary_text"],
+                    }
+                )
+                behavior_summaries[sensor] = behavior
+                behavior_details[sensor] = behavior_detail
             summary_rows.append({"sensor": sensor, **result.stats})
+        t_csv0 = time.perf_counter()
         write_csv_table(output_dir / "cleaning_summary.csv", summary_rows)
+        if characterization_rows:
+            write_csv_table(output_dir / "characterization_summary.csv", characterization_rows)
+        group_summaries = summarize_group_behaviors(behavior_details, cfg.get("steady_state")) if behavior_details else None
+        behavior_artifacts = (
+            write_behavior_outputs(output_dir, behavior_summaries, group_summaries=group_summaries)
+            if behavior_summaries
+            else None
+        )
+        write_elapsed += time.perf_counter() - t_csv0
         elapsed = time.perf_counter() - t0
-        save_json(output_dir / "run_summary.json", {"mode": "serial", "nproc": 1, "elapsed_sec": elapsed})
+        run_summary = {
+            "mode": "serial",
+            "nproc": 1,
+            "elapsed_sec": elapsed,
+            "timing_breakdown": {
+                "load_elapsed_sec": float(load_elapsed),
+                "compute_elapsed_sec": float(compute_elapsed),
+                "characterize_elapsed_sec": float(characterize_elapsed),
+                "write_elapsed_sec": float(write_elapsed),
+            },
+            "parallel_metrics": {
+                "work_unit": "sensor",
+                "total_sensors": len(dataset.sensors),
+                "assigned_sensors": len(dataset.sensors),
+            },
+        }
+        if behavior_artifacts:
+            run_summary["behavior_artifacts"] = behavior_artifacts
+        save_json(output_dir / "run_summary.json", run_summary)
         print(
             json.dumps(
                 {
                     "mode": "serial",
                     "elapsed_sec": elapsed,
+                    "timing_breakdown": run_summary["timing_breakdown"],
                     "output_dir": str(output_dir),
                     "run_summary_json": str(output_dir / "run_summary.json"),
                     "cleaning_summary_csv": str(output_dir / "cleaning_summary.csv"),
+                    "characterization_summary_csv": str(output_dir / "characterization_summary.csv") if characterization_rows else None,
+                    **(behavior_artifacts or {}),
                 },
                 indent=2,
             )
@@ -164,9 +267,23 @@ def cmd_clean(args, cfg, session):
         return
 
     if args.mode == "replicated":
-        summary = run_replicated_mode(args.cache_dir, output_dir, cfg["cleaning"], cfg["characterization"], do_characterize=args.characterize)
+        summary = run_replicated_mode(
+            args.cache_dir,
+            output_dir,
+            cfg["cleaning"],
+            cfg["characterization"],
+            behavior_cfg=cfg.get("steady_state"),
+            do_characterize=args.characterize,
+        )
     else:
-        summary = run_partitioned_mode(args.cache_dir, output_dir, cfg["cleaning"])
+        summary = run_partitioned_mode(
+            args.cache_dir,
+            output_dir,
+            cfg["cleaning"],
+            cfg["characterization"],
+            behavior_cfg=cfg.get("steady_state"),
+            do_characterize=args.characterize,
+        )
 
     elapsed = time.perf_counter() - t0
     if rank == 0:
@@ -180,6 +297,7 @@ def cmd_clean(args, cfg, session):
                     "output_dir": str(output_dir),
                     "run_summary_json": str(output_dir / "run_summary.json"),
                     "cleaning_summary_csv": str(output_dir / "cleaning_summary.csv"),
+                    "characterization_summary_csv": str(output_dir / "characterization_summary.csv") if args.characterize else None,
                     **summary,
                 },
                 indent=2,
@@ -194,26 +312,72 @@ def cmd_clean(args, cfg, session):
 
 def cmd_characterize(args, cfg, session):
     """Characterize cached signals without running the cleaning stage."""
+    cfg = _apply_cli_overrides(cfg, args)
     dataset = load_sensor_cache(args.cache_dir, mmap_mode="r")
     out_dir = ensure_dir(Path(session["paths"]["outputs_dir"]) / "characterization")
     rows = []
+    behavior_summaries: dict[str, dict] = {}
+    behavior_details: dict[str, dict] = {}
     for sensor, values in dataset.sensors.items():
         char = characterize_signal(dataset.time, values, **cfg["characterization"])
+        behavior, behavior_detail = analyze_signal_behavior(dataset.time, values, cfg.get("steady_state"))
         with open(out_dir / f"{normalize_header(sensor)}_characterization.json", "w", encoding="utf-8") as f:
             json.dump(char, f)
-        rows.append({"sensor": sensor, "method": char["method"], "n_dense": len(char["dense_time"])})
+        rows.append(
+            {
+                "sensor": sensor,
+                "method": char["method"],
+                "n_dense": len(char["dense_time"]),
+                "rate_of_change_plot": plot_rate_of_change(
+                    dataset.time,
+                    values,
+                    out_dir / f"{normalize_header(sensor)}_rate_of_change.png",
+                    title=f"{sensor}: signal and rate of change",
+                    steady_segments=behavior.get("steady_segments"),
+                ),
+                "steady_state_summary": behavior["summary_text"],
+            }
+        )
+        behavior_summaries[sensor] = behavior
+        behavior_details[sensor] = behavior_detail
     write_csv_table(out_dir / "characterization_summary.csv", rows)
-    print(json.dumps({"output_dir": str(out_dir), "characterized_sensors": len(rows)}, indent=2))
+    group_summaries = summarize_group_behaviors(behavior_details, cfg.get("steady_state"))
+    behavior_artifacts = write_behavior_outputs(out_dir, behavior_summaries, group_summaries=group_summaries)
+    print(
+        json.dumps(
+            {
+                "output_dir": str(out_dir),
+                "characterized_sensors": len(rows),
+                "characterization_summary_csv": str(out_dir / "characterization_summary.csv"),
+                **(behavior_artifacts or {}),
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_synth(args, cfg, session):
-    """Generate a synthetic CSV file for tests and scaling studies."""
-    out = generate_synthetic_timeseries(args.out, n_rows=args.n_rows, n_sensors=args.n_sensors)
-    print(json.dumps({"synthetic_csv": str(out)}, indent=2))
+    """Generate a synthetic file for tests and scaling studies."""
+    result = generate_synthetic_timeseries(
+        args.out,
+        n_rows=args.n_rows,
+        n_sensors=args.n_sensors,
+        noise_sigma=args.noise_sigma,
+        spike_fraction=args.spike_fraction,
+        seed=args.seed,
+        time_mode=args.time_mode,
+        header_style=args.header_style,
+        include_junk_columns=args.include_junk_columns,
+        flat_fraction=args.flat_fraction,
+        dropout_fraction=args.dropout_fraction,
+        output_format=args.output_format,
+    )
+    print(json.dumps({"synthetic_path": str(result["path"]), "metadata": result["metadata"]}, indent=2))
 
 
 def cmd_workflow(args, cfg, session):
     """Run the consolidated high-level workflow command."""
+    cfg = _apply_cli_overrides(cfg, args)
     report = run_workflow(args, cfg, session)
     print(json.dumps(report, indent=2))
 

@@ -8,6 +8,7 @@ the main commands still execute in sequence on a synthetic dataset.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -20,20 +21,30 @@ def main() -> int:
     subprocess.run([sys.executable, "-m", "ncdt_cleaner.cli", "synth", "--out", str(sample_out), "--n-rows", "1000", "--n-sensors", "4"], check=True, cwd=root)
     subprocess.run([sys.executable, "-m", "ncdt_cleaner.cli", "inspect", str(sample_out)], check=True, cwd=root)
     subprocess.run([sys.executable, "-m", "ncdt_cleaner.cli", "cache-build", str(sample_out)], check=True, cwd=root)
-    subprocess.run(
+    workflow_proc = subprocess.run(
         [
             sys.executable,
             "-m",
             "ncdt_cleaner.cli",
             "workflow",
             str(sample_out),
+            "--characterize",
+            "--steady-window-seconds",
+            "30",
             "--modes",
             "serial",
             "--skip-benchmark",
         ],
         check=True,
         cwd=root,
+        capture_output=True,
+        text=True,
     )
+    report = json.loads(workflow_proc.stdout)
+    clean_run = report["clean_runs"][0]
+    assert Path(root / clean_run["steady_state_report_md"]).exists()
+    assert Path(root / clean_run["steady_state_summary_csv"]).exists()
+    assert Path(root / clean_run["characterization_summary_csv"]).exists()
     subprocess.run(
         [
             sys.executable,

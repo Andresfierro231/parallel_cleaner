@@ -33,11 +33,11 @@
 \maketitle
 
 \begin{abstract}
-This project studies a modular workflow for cleaning noisy sensor data, characterizing the cleaned signal in time, and analyzing the performance tradeoffs of multiple parallelization strategies. The implementation uses Python with \texttt{mpi4py} as the main distributed-memory interface, optional accelerated local kernels, and a focused C/OpenMP companion kernel for shared-memory comparison. The baseline design starts with a replicated-data MPI strategy in which each rank holds a full copy of the dataset, since this simplifies neighborhood-based cleaning. The study then contrasts this baseline with a partitioned time-domain approach that uses halo overlap to preserve local-window correctness. The results are intended to support both a class-scale project and future large-scale archival workflows involving many GB or TB of CSV files.
+This report presents a modular workflow for cleaning noisy sensor data, characterizing cleaned signals in time, and evaluating the parallel performance of two MPI decompositions implemented in Python with \texttt{mpi4py} on top of the MPI standard \cite{mpi41,dalcin2021mpi4py}. The first decomposition is a replicated-data baseline that assigns sensor channels to ranks. The second decomposition partitions the time axis across ranks and uses halo overlap to preserve the local-window semantics of the cleaning kernel. Strong-scaling experiments on 100k, 200k, 500k, and 1M-row synthetic datasets show that the replicated design saturates once the rank count exceeds the 8 available sensor channels, while the partitioned design continues to scale and reaches its best observed result at 24 ranks on the 1M-row case. Additional weak-scaling and timing-breakdown studies show that the partitioned design remains the more defensible long-term distributed-memory strategy because it exposes useful work across more ranks while keeping load balance close to ideal.
 \end{abstract}
 
 \section{Introduction}
-This project treats programming as an experimental study: define the problem, implement candidate strategies, measure performance, and explain the observations. The computational goal is to identify unrealistic spikes or noisy data points, repair them using configurable rules, compute descriptive statistics, and build local characterizations of the cleaned data in time. The software is written as a reusable pipeline rather than a one-off script so it can serve both a report-quality course project and a future larger data-processing workflow.
+This project treats programming as an experimental study: define the problem, implement candidate strategies, measure performance, and explain the observations. The computational goal is to identify unrealistic spikes or noisy data points, repair them using configurable rules, compute descriptive statistics, and build local characterizations of the cleaned data in time. The software is written as a reusable pipeline rather than a one-off script so it can serve both a report-quality course project and a future larger data-processing workflow. The central question of the report is therefore parallel, not merely functional: which decomposition creates useful MPI work for this cleaning algorithm, and where do communication and orchestration costs begin to erase the benefit of additional ranks?
 
 \section{Problem Statement}
 Given an input table containing time and one or more numeric sensor channels, the program must:
@@ -77,7 +77,7 @@ For each point $x_i$, the code examines a local window of radius $w$. The center
 \subsection{Characterization}
 After cleaning, each signal is characterized with either:
 \begin{itemize}
-  \item a cubic spline when SciPy is available, or
+  \item a cubic spline when SciPy is available \cite{virtanen2020scipy,scipy_cubicspline}, or
   \item a fallback interpolation path when optional spline support is unavailable.
 \end{itemize}
 This stage is intentionally separated from spike removal so the report can distinguish ``repair'' from ``smooth characterization.''
@@ -104,8 +104,23 @@ The second MPI version partitions each sensor in the time dimension. Each rank r
   \item more careful bookkeeping.
 \end{itemize}
 
-\subsection{Why MPI? Why also mention OpenMP?}
-MPI is the main mechanism because the long-term workflow must scale beyond one shared-memory node and must be compatible with large archival processing. However, the local-window cleaning kernel is also a natural shared-memory loop, so a small C/OpenMP comparison is included to study a simpler shared-memory version of the inner operation.
+\subsection{Parallel decomposition and performance model}
+The main scientific question in this report is not only whether MPI runs, but how the cleaning work is decomposed across ranks and how that decomposition affects scaling. In the replicated baseline, the decomposition unit is the sensor channel. This makes the communication pattern simple because each rank can clean its assigned sensors locally after reading the same cache. However, the available parallelism is bounded by the number of sensors. In the benchmark campaign there are only 8 sensors, so the replicated design is expected to saturate once the rank count approaches that limit.
+
+In the partitioned strategy, the decomposition unit is a time segment from every sensor. This exposes much more parallel work because each sensor contributes work to every rank, but it introduces halo overlap, reassembly, and root-rank output overhead. The expected tradeoff is therefore a more scalable design at larger problem sizes, but with more communication and more bookkeeping.
+
+The report studies strong scaling, where the dataset size stays fixed while the number of MPI ranks changes. The two key performance metrics are
+\[
+S(p) = \frac{T_1}{T_p}
+\]
+for speedup \cite{amdahl1967} and
+\[
+E(p) = \frac{S(p)}{p}
+\]
+for parallel efficiency. These metrics make the parallel argument explicit: a useful MPI design should reduce runtime as $p$ grows, but it should also reveal where communication, synchronization, and load imbalance begin to dominate the computation.
+
+\subsection{Why MPI?}
+MPI is the main mechanism because the long-term workflow must scale beyond one shared-memory node and must be compatible with large archival processing. The local-window cleaning kernel is also a natural shared-memory loop, so the same decomposition ideas could later be compared against OpenMP or hybrid MPI+threads implementations, but the present report is centered on distributed-memory behavior.
 
 \section{Software Architecture}
 The repository is organized into clearly named subdirectories:
@@ -129,31 +144,101 @@ Key modules include:
 \end{itemize}
 
 \section{Experimental Setup}
-The report should measure:
+The completed study measures:
 \begin{itemize}
   \item serial runtime,
   \item replicated MPI runtime at multiple process counts,
   \item partitioned MPI runtime at multiple process counts,
-  \item memory footprint observations for each mode,
-  \item scaling across at least one larger synthetic dataset if the supplied data are too small.
+  \item weak-scaling behavior when work per rank is held approximately constant,
+  \item internal MPI timing breakdowns for compute, gather, and root-side output stages.
 \end{itemize}
 
 To reduce timing noise:
 \begin{itemize}
-  \item repeat each benchmark several times,
+  \item the main strong-scaling matrix was repeated three times per point,
+  \item the diagnostic strong-scaling and weak-scaling studies were run once per point to keep turnaround reasonable,
   \item time only the main computational region,
-  \item compare both single-node and multi-node runs when possible.
+  \item keep the MPI launcher and cluster environment fixed across campaigns.
 \end{itemize}
 
-\section{Planned Results Presentation}
-The final report should include:
-\begin{enumerate}[label=\arabic*.]
-  \item a runtime scaling plot with logarithmic runtime axis,
-  \item a speedup plot relative to serial execution,
-  \item a table summarizing flagged-point fractions and cleaning statistics,
-  \item a discussion of where scaling deviates from the ideal line,
-  \item a short comparison of MPI vs OpenMP memory and synchronization tradeoffs.
-\end{enumerate}
+\subsection{Additional MPI-focused analyses}
+Strong scaling alone is not enough to justify the parallel design choices in this project. A complete MPI discussion also needs to explain how the implementation behaves when the amount of work per rank is held roughly constant, and how the total runtime is divided among compute and communication-oriented stages. For that reason, the report supplements the corrected strong-scaling study with two additional analyses.
+
+First, a weak-scaling study increases the number of rows approximately in proportion to the rank count. If the parallel decomposition is effective, runtime should remain closer to constant than in the strong-scaling case, because each rank continues to receive a comparable amount of useful work \cite{gustafson1988}. This is especially important for the partitioned time-domain strategy, which is meant to be the long-term large-data design.
+
+Second, a timing-breakdown study records internal stage costs for representative MPI runs. The relevant categories are local cache load, local compute, collective gather/reassembly behavior, and root-rank output cost. These measurements help distinguish between two very different failure modes: a design that runs out of useful parallel work and a design that still has useful work but loses too much time to communication and synchronization overhead.
+
+\subsection{Reproducibility and workflow}
+The repository was reorganized so that one command can take a noisy input file through inspection, cache creation or reuse, cleaning, optional characterization, and benchmark generation. The default user-facing entrypoint is:
+
+\begin{lstlisting}
+python -m ncdt_cleaner.cli workflow /path/to/noisy_input.csv \
+  --modes serial replicated partitioned \
+  --process-counts 2 4 8 16 \
+  --characterize
+\end{lstlisting}
+
+For the paper-specific MPI studies, the same code path was exercised through the benchmark helpers in \texttt{benchmarks/}. Strong-scaling summaries were generated with \texttt{run\_scaling.py}, weak-scaling summaries with \texttt{run\_weak\_scaling.py}, and the final report figures were regenerated with the scripts under \texttt{reports/}. This organization matters because the paper results are not based on a separate prototype; they come from the same modular pipeline that a user would run on raw noisy data.
+
+\section{Results and Discussion}
+The corrected scaling study was run on synthetic datasets with 100k, 200k, 500k, and 1M rows. Each dataset was benchmarked in serial mode and in both MPI modes at process counts 2, 4, 8, 16, 24, 48, 64, 96, and 128. The reported benchmark matrix timed the cleaning stage only; the optional characterization stage remained available in the code base but was not enabled during these timing runs.
+
+\input{paper_scaling_best_table.tex}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/combined_runtime_scaling.png}
+\caption{Combined runtime scaling for replicated and partitioned MPI across the four corrected dataset sizes.}
+\label{fig:combined-runtime}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/combined_speedup_scaling.png}
+\caption{Combined speedup curves relative to the serial baseline. The dashed line marks ideal linear speedup.}
+\label{fig:combined-speedup}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/mpi_timing_breakdown_strong_1m.png}
+\caption{Internal timing breakdown for the 1M-row strong-scaling study. The replicated mode plateaus once the sensor count limits available parallel work, while the partitioned mode continues to reduce the dominant compute stage before overheads reappear at high rank counts.}
+\label{fig:mpi-breakdown}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/weak_scaling_runtime_report.png}
+\caption{Weak-scaling runtime with approximately 125k rows per rank. The partitioned method remains closer to constant runtime as ranks increase, while the replicated method degrades once the rank count exceeds the available sensor-level parallelism.}
+\label{fig:weak-runtime}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/weak_scaling_efficiency_report.png}
+\caption{Weak-scaling efficiency for the same campaign. Partitioned execution retains substantially better efficiency at larger rank counts.}
+\label{fig:weak-efficiency}
+\end{figure}
+
+Several trends are clear from Table~\ref{tab:scaling-best}. First, both MPI modes improve over serial execution at modest process counts for every dataset. Second, the best-performing process count increases with dataset size, which is what we would expect if fixed launch and communication costs matter less as the amount of useful work per rank grows. For the smallest 100k dataset, the best observed partitioned result was 2.60$\times$ faster than serial at 8 ranks. For the 1M dataset, the best observed partitioned result reached 8.06$\times$ speedup at 24 ranks.
+
+The replicated baseline improves at first but saturates early. This behavior is consistent with the implementation because the replicated mode distributes work by sensor channel, and the benchmark campaign contains only 8 sensors. Once the run uses more than about 8 ranks, there are not enough independent sensor tasks to keep all ranks equally busy, and overhead begins to dominate. This is why the replicated mode reaches its best point at 4 ranks for 100k rows and at 8 ranks for the larger datasets, then degrades as the process count continues to rise.
+
+The partitioned time-domain strategy is the more scalable design for larger inputs. It matches or exceeds replicated performance for every dataset and becomes clearly superior as the row count grows. At 500k rows, the best replicated result was 4.52$\times$ speedup, while the best partitioned result reached 5.37$\times$. At 1M rows, the gap widens further: replicated reached 6.25$\times$ speedup at 8 ranks, while partitioned reached 8.06$\times$ at 24 ranks. This supports the architectural argument that time-domain partitioning is a better long-term direction for large-data workflows.
+
+The high process counts are still useful in the study even when they are slower than the best point. Measurements at 48, 64, 96, and 128 ranks show where the scaling curve bends downward and where additional parallel resources stop helping. For the smaller datasets, those counts are beyond the useful regime and primarily measure MPI overhead, data assembly cost, and root-rank output cost. For the larger datasets, they remain informative because they show that this implementation does not continue to scale linearly once the local work per rank becomes too small.
+
+Figures~\ref{fig:combined-runtime} and~\ref{fig:combined-speedup} make the parallel story more rigorous than a best-point table alone. The runtime figure shows how the useful operating region shifts right as the dataset grows: larger problems continue to benefit from more ranks before overhead dominates. The speedup figure shows that the partitioned method retains useful scaling deeper into the rank range, while the replicated method saturates early because it has too few independent sensor tasks to distribute.
+
+This distinction is central to the report. The replicated mode demonstrates MPI as a simple correctness baseline with minimal communication structure. The partitioned mode demonstrates a more rigorous distributed-memory algorithm: neighborhood correctness is preserved through halo overlap, global outputs are reconstructed explicitly, and the scaling curves reflect both the benefit and the cost of that design. In that sense, the benchmark study is a study of parallel decomposition as much as it is a study of runtime.
+
+The additional diagnostics strengthen that interpretation. Figure~\ref{fig:mpi-breakdown} shows that in the replicated implementation the maximum compute time per rank drops from about 77.6\,s at 2 ranks to about 19.2\,s at 8 ranks, then remains near 19--20\,s even as more ranks are added. This is exactly what the decomposition predicts: with only 8 sensor channels, adding ranks beyond 8 does not create more useful work. The parallel-metrics summary confirms this directly because the mean assigned sensors per rank falls below 1 beyond 8 ranks and the minimum assigned sensors becomes 0.
+
+The partitioned implementation behaves differently. Its maximum compute stage falls from about 76.8\,s at 2 ranks to about 7.1\,s at 24 ranks, while the work distribution remains balanced: the max-to-min compute ratio stays close to 1.08--1.15 across the rank range and the owned rows per rank decrease almost ideally with rank count. This means the high-rank slowdown in the total runtime is not caused primarily by load imbalance. It is caused by the expected strong-scaling limit: once each rank owns only a small time segment, fixed overheads such as launch cost, halo management, gather, and root-side output become a larger fraction of the run.
+
+Weak scaling makes the same point from the opposite direction. In the weak-scaling campaign each rank was given about 125k rows. The partitioned method stayed close to constant runtime from 1 to 8 ranks, rising only from 22.3\,s to 25.6\,s, and still retained about 0.75 efficiency at 16 ranks. The replicated method also behaved well up to 8 ranks, but then deteriorated sharply, reaching about 47.6\,s at 16 ranks and 70.6\,s at 24 ranks. Figures~\ref{fig:weak-runtime} and~\ref{fig:weak-efficiency} therefore reinforce the central conclusion of the paper: the time-domain partitioned algorithm is the more defensible MPI design because it exposes a decomposition that continues to create useful distributed-memory work as the problem grows.
+
+Overall, the corrected benchmark results and the new diagnostics are internally consistent and technically reasonable. They show a sensible crossover from small-problem overhead-dominated behavior to larger-problem useful scaling, and they distinguish clearly between a simple correctness-oriented replicated baseline and a more scalable partitioned implementation.
 
 \section{Limitations and Future Work}
 This project skeleton intentionally prioritizes correctness, modularity, and traceability. Future extensions include:
@@ -162,11 +247,18 @@ This project skeleton intentionally prioritizes correctness, modularity, and tra
   \item higher-performance out-of-core multi-file ingestion,
   \item explicit Cython kernels,
   \item streaming adapters that continuously append to the cache,
-  \item direct integration with a live dashboard data provider.
+  \item direct integration with a live dashboard data provider,
+  \item memory-per-rank measurements to compare replicated and partitioned execution,
+  \item load-balance studies that vary the number of sensors and the halo width,
+  \item nonblocking communication experiments for overlap-aware partition exchange,
+  \item multi-node scaling runs beyond one 256-core node.
 \end{itemize}
 
 \section{Conclusion}
-The project is well-suited to a scientific-style course report because it has a clear computational structure, meaningful algorithmic choices, and measurable parallel tradeoffs. The replicated MPI version is a good first correctness baseline, while the partitioned version better reflects long-term large-data needs. The software architecture is designed so that the same codebase can support demonstration runs now and much larger archival workflows later.
+The project is well-suited to a scientific-style course report because it has a clear computational structure, meaningful algorithmic choices, and measurable parallel tradeoffs. The central result is not simply that MPI was used, but that the decomposition choice determined whether MPI created useful work. The replicated MPI version is a useful correctness baseline and performs well up to the 8-sensor limit of the benchmark family. The partitioned version scales further because it distributes time-domain work from every sensor to every rank, and it therefore becomes the stronger candidate for future large-data workflows. The software architecture reinforces that result: the same modular codebase supports raw-data ingestion, cleaned outputs, spline-style characterization, strong scaling, weak scaling, and MPI diagnostics from a centralized command path.
+
+\bibliographystyle{plain}
+\bibliography{references}
 
 
 

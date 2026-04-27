@@ -1,0 +1,15 @@
+{
+  "campaign_name": "scaling_default",
+  "outdir": "analysis/synthetic_campaigns",
+  "row_counts": [100000, 500000, 1000000, 5000000],
+  "num_sensors": 8,
+  "noise_sigma": 0.35,
+  "spike_fraction": 0.002,
+  "flat_fraction": 0.0005,
+  "dropout_fraction": 0.0002,
+  "seed_base": 100,
+  "time_mode": "numeric",
+  "header_style": "standard",
+  "include_junk_columns": false,
+  "formats": ["csv"]
+}
