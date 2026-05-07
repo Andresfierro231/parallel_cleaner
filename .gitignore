@@ -1,0 +1,34 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.npy
+*.egg-info/
+
+# Local environments and tool caches
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+**/.codex
+
+# OS and application cruft
+.DS_Store
+~$*.xlsx
+
+# Local data and generated analysis outputs
+data/
+analysis/
+*.tsv
+
+# Report build artifacts
+reports/_render_check/
+reports/*.aux
+reports/*.bbl
+reports/*.blg
+reports/*.log
+reports/*.out
+reports/*.pdf
+reports/figures/*.png
+reports/paper_scaling_best_table.csv
+reports/paper_scaling_best_table.tex

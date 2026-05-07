@@ -1,0 +1,70 @@
+{
+  "analysis_dir": "analysis",
+  "allow_index_time_fallback": true,
+  "default_time_unit": "seconds",
+  "schema": {
+    "manual_time_column": null,
+    "manual_sensor_columns": null,
+    "exclude_columns": [],
+    "sensor_name_keywords": [
+      "tube", "shell", "tc", "temperature", "flow", "pressure", "dpt", "sensor"
+    ]
+  },
+  "cleaning": {
+    "window_radius": 5,
+    "z_threshold": 3.0,
+    "absolute_jump_threshold": 0.0,
+    "strategy": "local_mean",
+    "clip_max": null,
+    "nan_policy": "interpolate"
+  },
+  "characterization": {
+    "method": "cubic_spline",
+    "dense_factor": 4
+  },
+  "steady_state": {
+    "steady_window_seconds": 60.0,
+    "min_steady_duration_seconds": 60.0,
+    "min_points_per_window": 5,
+    "change_fraction_of_scale": 0.15,
+    "std_fraction_of_scale": 0.10,
+    "slope_tolerance_per_second": null,
+    "max_change_in_window": null,
+    "max_std_in_window": null,
+    "groups": {
+      "all_sensors": ["*"]
+    }
+  },
+  "cache": {
+    "dtype": "float64"
+  },
+  "execution": {
+    "default_modes": ["serial", "replicated", "partitioned"],
+    "analysis_nproc": null,
+    "mpi_launcher": "mpirun"
+  },
+  "__comment_execution_defaults__": {
+    "default_modes_field": "execution.default_modes controls which cleaning modes workflow uses when --modes is not provided.",
+    "analysis_nproc_field": "execution.analysis_nproc can pin the MPI rank count used for one-off replicated/partitioned analysis runs. Leave it null to use the largest configured benchmark process_count greater than 1.",
+    "mpi_launcher_field": "execution.mpi_launcher sets the default MPI launcher for workflow analysis runs unless --mpi-launcher is passed.",
+    "serial": "Use serial for the easiest newcomer workflow and for smaller datasets.",
+    "replicated": "Use replicated when you have a small number of MPI ranks and enough memory for every rank to hold the full dataset.",
+    "partitioned": "Use partitioned when you have more MPI ranks or larger datasets and want the more scalable time-domain decomposition.",
+    "practical_rule_of_thumb": "Start in serial, move to replicated for a few ranks, and prefer partitioned as data size or rank count makes full-data duplication less attractive."
+  },
+  "benchmark": {
+    "enabled_by_default": false,
+    "repeat": 3,
+    "process_counts": [1, 2, 4, 8]
+  },
+  "__comment_benchmark_defaults__": {
+    "workflow_default_behavior": "The workflow command is analysis-first by default. Set benchmark.enabled_by_default to true or pass --benchmark when you want repeated timing studies.",
+    "enabled_by_default_field": "benchmark.enabled_by_default controls whether workflow runs benchmark timing without an explicit CLI override.",
+    "repeat_field": "benchmark.repeat controls how many repeated timing runs are used for each benchmark measurement.",
+    "process_counts_field": "benchmark.process_counts controls the default MPI rank counts used in benchmark studies."
+  },
+
+  "__comment_saving_prcs_nums__": {
+    "Set nproc to match available cores":{},
+    "nproc": [1, 2, 4, 8, 16, 32, 48, 64, 80, 96, 128]}
+}
